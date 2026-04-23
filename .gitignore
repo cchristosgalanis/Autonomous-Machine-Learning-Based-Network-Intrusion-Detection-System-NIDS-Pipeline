@@ -1,0 +1,21 @@
+# Python bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Directories to ignore
+cicflowmeter/
+Diagrams/
+
+# Datasets (Large CSV files)
+*.csv
+
+# OS generated files
+.DS_Store
+
+
+
+
+
+
+
