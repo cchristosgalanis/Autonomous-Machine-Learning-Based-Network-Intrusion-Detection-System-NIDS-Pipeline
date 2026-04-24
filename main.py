@@ -6,11 +6,8 @@ import time
 
 
 def main():
-    window_size = 20
-
     try:
-        start_time = time.time()
-        benign_dataset = pd.read_csv("flows.csv",sep=',')
+        benign_dataset = pd.read_csv("benign.csv",sep=',')
         print("Dataset has been loaded... \n")
     except Exception as e:
         print("Error while loaded dataset!")
@@ -20,18 +17,6 @@ def main():
     T_volume = benign_dataset['flow_byts_s']
     N_requests = benign_dataset['flow_pkts_s']
     S_len = benign_dataset['pkt_len_mean']
-
-    print("-------------------- \n")
-    print("Flow Bytes/sec: \n")
-    print(T_volume.head(5))
-
-    print("-------------------- \n")
-    print("\n Flow Packets/sec: \n")
-    print(N_requests.head(5))
-
-    print("-------------------- \n")
-    print("\n Packet Length Mean : \n")
-    print(S_len.head(5))
 
     #transforming dataframes to np.arrays
     try:
@@ -44,8 +29,18 @@ def main():
 
 #-------------------------------------------------------------------------------------------------------
 
+    start_time = time.time()
+
     #creating 1D vector with live traffic
     live_traffic = np.column_stack((T_volume,N_requests,S_len))
+
+    #compute σ for live traffic
+    sigma_live = np.std(live_traffic, axis=0)
+    parameters = np.load('train_metrics.npz')
+    sigma_train = parameters['sigma_train']
+    window_size = nl.volatility__dynamic_windowing(window_train=20,sigma_train=sigma_train,sigma_live=sigma_live)
+
+    print(window_size)
 
     # datas normalization to [0,1]
     """
@@ -86,6 +81,8 @@ def main():
         flag1 = False
 
 
+#-------------------------------------------------------------------------------------------------------
+
     #checking further more with shannon entropy and linear regression model
     if flag1 == True:
         try:
@@ -108,8 +105,6 @@ def main():
         z_score = nl.Z_score(entropy_residual)
         theta_cheb = nl.theta_cheb(0.02)
 
-        print(f"\n Z-score for live traffic is: {z_score} \n")
-
         if np.any(z_score > theta_cheb): 
             print("\n There might be anomalous traffic! \n")
             end_time = time.time() - start_time
@@ -119,6 +114,8 @@ def main():
             end_time = time.time() - start_time
             print(f"\n Time taken for the whole process: {end_time:.4f} seconds \n")
 
+
+#-------------------------------------------------------------------------------------------------------
 
     
 if __name__ == "__main__":

@@ -1,5 +1,5 @@
 from sklearn.linear_model import LinearRegression
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import RobustScaler
 from sklearn.model_selection import train_test_split
 import joblib
 import time 
@@ -44,7 +44,7 @@ def actual_vs_predicted(ytest, predictions):
     ax.set_xlabel('Actual Entropy')
     ax.set_ylabel('Predicted Entropy')
     ax.legend()
-    plt.savefig('actual_vs_predicted.png', dpi=300, bbox_inches='tight')
+    #plt.savefig('actual_vs_predicted.png', dpi=300, bbox_inches='tight')
     
     plt.show()
 
@@ -74,7 +74,7 @@ def plot_residuals(ytest, predictions):
     ax.set_xlabel('Predicted Entropy')
     ax.set_ylabel('Residuals (Actual - Predicted)')
     ax.legend()
-    plt.savefig('residuals_plot.png', dpi=300, bbox_inches='tight')
+    #plt.savefig('residuals_plot.png', dpi=300, bbox_inches='tight')
     
     plt.show()
 
@@ -97,7 +97,7 @@ def plot_residual_distribution(ytest, predictions):
     plt.xlabel('Residual Value (Error)', fontsize=12)
     plt.ylabel('Frequency', fontsize=12)
     plt.legend()
-    plt.savefig('residual_distribution.png', dpi=300, bbox_inches='tight')
+    #plt.savefig('residual_distribution.png', dpi=300, bbox_inches='tight')
     
     plt.show()
 
@@ -138,7 +138,7 @@ def linear_regression():
     S_len = nl.renyi_entropy(S_len,window_size,10)
 
     #utilize scaler for data's scaling
-    scaler = StandardScaler()
+    scaler = RobustScaler()
 
     T_volume = T_volume.reshape(-1,1)
     N_requests = N_requests.reshape(-1,1)
@@ -203,15 +203,15 @@ def linear_regression():
     plot_residual_distribution(ytest, predictions_test)
 
     #block for saving model and scaler
-    try:
-        print("\nSaving model ... \n")
-        joblib.dump(model,'linear_regression.pkl')
-        print("\nSaving scaler ...  \n")
-        joblib.dump(scaler,'standardScaler.pkl')
-        np.savez('train_metrics.npz', mean_train=mean_train, sigma_train=sigma_train)
-    except Exception as e:
-        print(e)
-        return 
+    # try:
+    #     print("\nSaving model ... \n")
+    #     joblib.dump(model,'linear_regression.pkl')
+    #     print("\nSaving scaler ...  \n")
+    #     joblib.dump(scaler,'standardScaler.pkl')
+    #     np.savez('train_metrics.npz', mean_train=mean_train, sigma_train=sigma_train)
+    # except Exception as e:
+    #     print(e)
+    #     return 
 
 
 
