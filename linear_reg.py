@@ -44,7 +44,7 @@ def actual_vs_predicted(ytest, predictions):
     ax.set_xlabel('Actual Entropy')
     ax.set_ylabel('Predicted Entropy')
     ax.legend()
-    #plt.savefig('actual_vs_predicted.png', dpi=300, bbox_inches='tight')
+    plt.savefig('actual_vs_predicted.png', dpi=300, bbox_inches='tight')
     
     plt.show()
 
@@ -74,7 +74,7 @@ def plot_residuals(ytest, predictions):
     ax.set_xlabel('Predicted Entropy')
     ax.set_ylabel('Residuals (Actual - Predicted)')
     ax.legend()
-    #plt.savefig('residuals_plot.png', dpi=300, bbox_inches='tight')
+    plt.savefig('residuals_plot.png', dpi=300, bbox_inches='tight')
     
     plt.show()
 
@@ -97,7 +97,7 @@ def plot_residual_distribution(ytest, predictions):
     plt.xlabel('Residual Value (Error)', fontsize=12)
     plt.ylabel('Frequency', fontsize=12)
     plt.legend()
-    #plt.savefig('residual_distribution.png', dpi=300, bbox_inches='tight')
+    plt.savefig('residual_distribution.png', dpi=300, bbox_inches='tight')
     
     plt.show()
 
