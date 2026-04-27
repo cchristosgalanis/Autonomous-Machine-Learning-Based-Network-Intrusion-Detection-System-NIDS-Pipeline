@@ -185,9 +185,10 @@ def first_stab_check(norm_array,live_traffic_array,window_size):
 #function to load linear regression model and scaler
 def load_model_and_scaler():
     try:
-        model = joblib.load('linear_regression.pkl')
-        scaler = joblib.load('standardScaler.pkl')
-        return model, scaler
+        model = joblib.load('linear_regression_feat_exp.pkl')
+        scaler = joblib.load('RobustScaler_feat_exp.pkl')
+        scaler1 = joblib.load('RobustScaler1_feat_exp.pkl')
+        return model, scaler, scaler1
     except Exception as e:
         print(f"Error loading model or scaler: {e}")
         return None, None
@@ -197,7 +198,7 @@ def load_model_and_scaler():
 
 
 #second residual check | shannon entropy based with linear regression model
-def entropy_based_stab_check(T_volume,N_requests,S_len,window_size,model,scaler):
+def entropy_based_stab_check(T_volume,N_requests,S_len,window_size,model,scaler,scaler1):
     """"
         this function is for checking the residual of live traffic based on shannon entropy and linear regression model.
         Arguments: T_volume -> array of total volume of bytes per flow
@@ -216,8 +217,20 @@ def entropy_based_stab_check(T_volume,N_requests,S_len,window_size,model,scaler)
     N_requests = N_requests.reshape(-1,1)
     S_len = S_len.reshape(-1,1)
 
+    #tranforming features 
+    N_requests = scaler1.transform(N_requests)
+    S_len = scaler1.transform(S_len)
+
+    # --- Polnomial Expansion on Features ---
+    N_requests_quad = np.square(N_requests)
+    S_len_quad = np.square(S_len)
+
+    Nreq_Slen = N_requests * S_len
+
+    ones = np.ones_like(N_requests)
+
     #creating 1D vector with features for linear regression model
-    X = np.column_stack([N_requests,S_len])
+    X = np.column_stack([ones,N_requests,S_len,N_requests_quad,Nreq_Slen,S_len_quad])
     #using scaler for data's scaling
     X = scaler.transform(X)
 
@@ -237,7 +250,7 @@ def entropy_based_stab_check(T_volume,N_requests,S_len,window_size,model,scaler)
 def Z_score(residual):
     try:
         print("\n Loading training metrics ... \n")
-        parameters = np.load('train_metrics.npz')
+        parameters = np.load('train_metrics_feature_expansion.npz')
         mean_train = parameters['mean_train']
         sigma_train = parameters['sigma_train']
     except Exception as e:
@@ -267,21 +280,21 @@ def theta_cheb(f_pos_rate):
 
 #-------------------------------------------------------------------------------------------------
 
-def volatility__dynamic_windowing(window_train,sigma_train,sigma_live):
-    """
-        this function is for calculating dynamic windowing size for second stability check based on volatility of live traffic and training data.
-        Arguments: window_train -> windowing size for training data
-                    sigma_train -> standard deviation of training data
-                    sigma_live -> standard deviation of live traffic
+# def volatility__dynamic_windowing(window_train,sigma_train,sigma_live):
+#     """
+#         this function is for calculating dynamic windowing size for second stability check based on volatility of live traffic and training data.
+#         Arguments: window_train -> windowing size for training data
+#                     sigma_train -> standard deviation of training data
+#                     sigma_live -> standard deviation of live traffic
 
-        volatility = sigma_live / sigma_train
-        dynamic_window_size = window_train * volatility
-    """
+#         volatility = sigma_live / sigma_train
+#         dynamic_window_size = window_train * volatility
+#     """
 
-    volatility = sigma_live / sigma_train
-    dynamic_window_size = int(window_train * volatility)
+#     volatility = sigma_live / sigma_train
+#     dynamic_window_size = int(window_train * volatility)
 
-    return dynamic_window_size
+#     return dynamic_window_size
 
 
 

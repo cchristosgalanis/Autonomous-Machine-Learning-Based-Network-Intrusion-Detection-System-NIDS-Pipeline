@@ -106,51 +106,63 @@ def plot_residual_distribution(ytest, predictions):
 # ---------------------------------------------------------------------------------
 
 
-# 3D visualization of feature space and linear regression plane
 def plot_3d_regression(model, scaler, xtest, ytest):
     """
-        Creates a 3D plot to visualize how the model fits the feature space.
-        Arguments: model -> trained LinearRegression model
-                   scaler -> RobustScaler used for features
-                   xtest -> testing features (scaled)
-                   ytest -> actual target values
+        Visualizes the 2nd degree polynomial regression surface.
+        Expects xtest to have 6 columns as trained.
     """
     
-    # Extract features for visualization
-    x_data = xtest[:, 0] # Entropy of N_requests
-    y_data = xtest[:, 1] # Entropy of S_len
-    z_data = ytest.flatten() # Actual Entropy of T_volume
+    # 1. Εξαγωγή των βασικών χαρακτηριστικών από το xtest (στήλες 1 και 2)
+    # Προσοχή: xtest[:, 0] είναι οι άσοι, οπότε παίρνουμε 1 και 2 για τα δεδομένα
+    x_data = xtest[:, 1] # Scaled N_requests
+    y_data = xtest[:, 2] # Scaled S_len
+    z_data = ytest.flatten() # Actual T_volume
 
-    # Create a meshgrid for the prediction plane
-    x_range = np.linspace(x_data.min(), x_data.max(), 20)
-    y_range = np.linspace(y_data.min(), y_data.max(), 20)
+    # 2. Δημιουργία meshgrid βασισμένο στο εύρος των scaled δεδομένων
+    x_range = np.linspace(x_data.min(), x_data.max(), 30)
+    y_range = np.linspace(y_data.min(), y_data.max(), 30)
     X_grid, Y_grid = np.meshgrid(x_range, y_range)
     
-    # Predict Z values (T_volume) for every point in the grid
-    # Combine X and Y into the format expected by the model
-    grid_points = np.c_[X_grid.ravel(), Y_grid.ravel()]
-    Z_grid = model.predict(grid_points).reshape(X_grid.shape)
+    # 3. Επιπέδωση των σημείων του πλέγματος για υπολογισμούς
+    x_flat = X_grid.ravel()
+    y_flat = Y_grid.ravel()
 
-    # Initialize 3D plot
+    # 4. Χειροκίνητο Feature Expansion για το πλέγμα (ίδια σειρά με το training!)
+    # Δημιουργούμε τις 6 στήλες: [1, x, y, x^2, y^2, x*y]
+    ones_grid = np.ones_like(x_flat)
+    x_quad_grid = x_flat ** 2
+    y_quad_grid = y_flat ** 2
+    xy_interaction_grid = x_flat * y_flat
+
+    grid_poly = np.column_stack([
+        ones_grid, 
+        x_flat, 
+        y_flat, 
+        x_quad_grid, 
+        y_quad_grid, 
+        xy_interaction_grid
+    ])
+
+    # 5. Πρόβλεψη χρησιμοποιώντας και τους 6 όρους
+    Z_grid = model.predict(grid_poly).reshape(X_grid.shape)
+
+    # --- Οπτικοποίηση ---
     fig = plt.figure(figsize=(12, 8))
     ax = fig.add_subplot(111, projection='3d')
 
-    # Plot the regression plane (Model's response)
-    surf = ax.plot_surface(X_grid, Y_grid, Z_grid, alpha=0.4, cmap='viridis')
+    # Σχεδίαση της πολυωνυμικής επιφάνειας
+    surf = ax.plot_surface(X_grid, Y_grid, Z_grid, alpha=0.5, cmap='viridis', antialiased=True)
     
-    # Plot the actual testing data points
-    scatter = ax.scatter(x_data, y_data, z_data, c='red', s=50, edgecolors='w', label='Actual Data')
+    # Σχεδίαση των πραγματικών σημείων ελέγχου (Test Data)
+    scatter = ax.scatter(x_data, y_data, z_data, c='red', s=40, edgecolors='w', label='Actual Test Data')
 
-    # Set labels and titles
     ax.set_xlabel('Entropy: N_requests (Scaled)')
     ax.set_ylabel('Entropy: S_len (Scaled)')
     ax.set_zlabel('Entropy: T_volume')
-    ax.set_title('3D Feature Space & Linear Regression Plane', fontsize=14, fontweight='bold')
+    ax.set_title('3D Polynomial Regression Surface (Degree 2)', fontsize=14, fontweight='bold')
     
     ax.legend(loc='upper left')
-    
-    # Save visualization
-    #plt.savefig('3d_regression_analysis.png', dpi=300, bbox_inches='tight')
+    fig.colorbar(surf, ax=ax, shrink=0.5, aspect=10, label='Predicted Entropy Level')
     
     plt.show()
 
@@ -167,6 +179,12 @@ def linear_regression():
     except Exception as e:
         print("Error while loaded dataset!")
         return
+    
+    #utilize scaler for data's scaling
+    scaler = RobustScaler()
+    scaler1 = RobustScaler()
+    #utilize model
+    model = LinearRegression()
     
     #get features from dataframe
     T_volume = benign_dataset['flow_byts_s']
@@ -185,28 +203,37 @@ def linear_regression():
     except Exception as e:
         print(e)
         return 
-    
+
     #renyi entropy for each feature
     T_volume = nl.renyi_entropy(T_volume,window_size,10)
     N_requests = nl.renyi_entropy(N_requests,window_size,10)
     S_len = nl.renyi_entropy(S_len,window_size,10)
 
-    #utilize scaler for data's scaling
-    scaler = RobustScaler()
-
     T_volume = T_volume.reshape(-1,1)
     N_requests = N_requests.reshape(-1,1)
     S_len = S_len.reshape(-1,1)
 
+    #applying RobustScaler to each feature before polynomial expansion
+    N_requests = scaler1.fit_transform(N_requests)
+    S_len = scaler1.fit_transform(S_len)
+
+    # --- Polynomial Expansion on Features ---
+    #computing quadric features
+    N_requests_quad = np.square(N_requests)
+    S_len_quad = np.square(S_len)
+
+    #computing margin features
+    Nreq_Slen = N_requests * S_len
+
+    #creating matrix with ones
+    ones = np.ones_like(N_requests)
+
     #datas for training
-    X_train = np.column_stack([N_requests,S_len])
+    X_train = np.column_stack([ones,N_requests,S_len,N_requests_quad,Nreq_Slen,S_len_quad])
     y_train = np.column_stack([T_volume])
 
     X_train = scaler.fit_transform(X_train)
    
-    #utilize model
-    model = LinearRegression()
-
     #split dataset for training and testing
     xtrain, xtest, ytrain, ytest = train_test_split(X_train,y_train,test_size=0.20,random_state=42)
 
@@ -258,15 +285,16 @@ def linear_regression():
     plot_3d_regression(model, scaler, xtest, ytest)
 
     #block for saving model and scaler
-    # try:
-    #     print("\nSaving model ... \n")
-    #     joblib.dump(model,'linear_regression.pkl')
-    #     print("\nSaving scaler ...  \n")
-    #     joblib.dump(scaler,'standardScaler.pkl')
-    #     np.savez('train_metrics.npz', mean_train=mean_train, sigma_train=sigma_train)
-    # except Exception as e:
-    #     print(e)
-    #     return 
+    try:
+        print("\nSaving model ... \n")
+        joblib.dump(model,'linear_regression_feat_exp.pkl')
+        print("\nSaving scaler ...  \n")
+        joblib.dump(scaler,'RobustScaler_feat_exp.pkl')
+        joblib.dump(scaler1,'RobustScaler1_feat_exp.pkl')
+        np.savez('train_metrics_feature_expansion.npz', mean_train=mean_train, sigma_train=sigma_train)
+    except Exception as e:
+        print(e)
+        return 
 
 
 

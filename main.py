@@ -7,7 +7,7 @@ import time
 
 def main():
     try:
-        benign_dataset = pd.read_csv("benign.csv",sep=',')
+        benign_dataset = pd.read_csv("flows.csv",sep=',')
         print("Dataset has been loaded... \n")
     except Exception as e:
         print("Error while loaded dataset!")
@@ -38,9 +38,8 @@ def main():
     sigma_live = np.std(live_traffic, axis=0)
     parameters = np.load('train_metrics.npz')
     sigma_train = parameters['sigma_train']
-    window_size = nl.volatility__dynamic_windowing(window_train=20,sigma_train=sigma_train,sigma_live=sigma_live)
-
-    print(window_size)
+    #window_size = nl.volatility__dynamic_windowing(window_train=20,sigma_train=sigma_train,sigma_live=sigma_live)
+    window_size = 20
 
     # datas normalization to [0,1]
     """
@@ -86,7 +85,7 @@ def main():
     #checking further more with shannon entropy and linear regression model
     if flag1 == True:
         try:
-            model, scaler = nl.load_model_and_scaler()
+            model, scaler, scaler1 = nl.load_model_and_scaler()
 
             if model is None or scaler is None:
                 print("Model or scaler could not be loaded. Exiting.")
@@ -94,7 +93,7 @@ def main():
             else:
                 print("Model and Scaler loaded successfully.")
 
-            entropy_residual = nl.entropy_based_stab_check(T_volume,N_requests,S_len,window_size,model,scaler)
+            entropy_residual = nl.entropy_based_stab_check(T_volume,N_requests,S_len,window_size,model,scaler,scaler1)
             print("\n Entropy based residual check has been calculated ... \n")
         except RuntimeError as e:
             print(e)
