@@ -7,6 +7,7 @@ import non_linear as nl
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
 import seaborn as sns
 
 
@@ -44,7 +45,7 @@ def actual_vs_predicted(ytest, predictions):
     ax.set_xlabel('Actual Entropy')
     ax.set_ylabel('Predicted Entropy')
     ax.legend()
-    plt.savefig('actual_vs_predicted.png', dpi=300, bbox_inches='tight')
+    #plt.savefig('actual_vs_predicted.png', dpi=300, bbox_inches='tight')
     
     plt.show()
 
@@ -74,7 +75,7 @@ def plot_residuals(ytest, predictions):
     ax.set_xlabel('Predicted Entropy')
     ax.set_ylabel('Residuals (Actual - Predicted)')
     ax.legend()
-    plt.savefig('residuals_plot.png', dpi=300, bbox_inches='tight')
+    #plt.savefig('residuals_plot.png', dpi=300, bbox_inches='tight')
     
     plt.show()
 
@@ -97,13 +98,66 @@ def plot_residual_distribution(ytest, predictions):
     plt.xlabel('Residual Value (Error)', fontsize=12)
     plt.ylabel('Frequency', fontsize=12)
     plt.legend()
-    plt.savefig('residual_distribution.png', dpi=300, bbox_inches='tight')
+    #plt.savefig('residual_distribution.png', dpi=300, bbox_inches='tight')
     
     plt.show()
 
 
 # ---------------------------------------------------------------------------------
 
+
+# 3D visualization of feature space and linear regression plane
+def plot_3d_regression(model, scaler, xtest, ytest):
+    """
+        Creates a 3D plot to visualize how the model fits the feature space.
+        Arguments: model -> trained LinearRegression model
+                   scaler -> RobustScaler used for features
+                   xtest -> testing features (scaled)
+                   ytest -> actual target values
+    """
+    
+    # Extract features for visualization
+    x_data = xtest[:, 0] # Entropy of N_requests
+    y_data = xtest[:, 1] # Entropy of S_len
+    z_data = ytest.flatten() # Actual Entropy of T_volume
+
+    # Create a meshgrid for the prediction plane
+    x_range = np.linspace(x_data.min(), x_data.max(), 20)
+    y_range = np.linspace(y_data.min(), y_data.max(), 20)
+    X_grid, Y_grid = np.meshgrid(x_range, y_range)
+    
+    # Predict Z values (T_volume) for every point in the grid
+    # Combine X and Y into the format expected by the model
+    grid_points = np.c_[X_grid.ravel(), Y_grid.ravel()]
+    Z_grid = model.predict(grid_points).reshape(X_grid.shape)
+
+    # Initialize 3D plot
+    fig = plt.figure(figsize=(12, 8))
+    ax = fig.add_subplot(111, projection='3d')
+
+    # Plot the regression plane (Model's response)
+    surf = ax.plot_surface(X_grid, Y_grid, Z_grid, alpha=0.4, cmap='viridis')
+    
+    # Plot the actual testing data points
+    scatter = ax.scatter(x_data, y_data, z_data, c='red', s=50, edgecolors='w', label='Actual Data')
+
+    # Set labels and titles
+    ax.set_xlabel('Entropy: N_requests (Scaled)')
+    ax.set_ylabel('Entropy: S_len (Scaled)')
+    ax.set_zlabel('Entropy: T_volume')
+    ax.set_title('3D Feature Space & Linear Regression Plane', fontsize=14, fontweight='bold')
+    
+    ax.legend(loc='upper left')
+    
+    # Save visualization
+    #plt.savefig('3d_regression_analysis.png', dpi=300, bbox_inches='tight')
+    
+    plt.show()
+
+
+# ---------------------------------------------------------------------------------
+
+#function to train model
 def linear_regression():
     window_size = 20
 
@@ -201,6 +255,7 @@ def linear_regression():
     actual_vs_predicted(ytest, predictions_test)
     plot_residuals(ytest, predictions_test)
     plot_residual_distribution(ytest, predictions_test)
+    plot_3d_regression(model, scaler, xtest, ytest)
 
     #block for saving model and scaler
     # try:
