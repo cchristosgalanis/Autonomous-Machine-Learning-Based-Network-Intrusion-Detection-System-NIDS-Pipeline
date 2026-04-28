@@ -90,8 +90,13 @@ def analyzer_worker(w_train, sigma_train, mean_train, theta_cheb, model, scaler)
 
                 # check for anomalies using Chebyshev threshold
                 if np.any(z_score > theta_cheb):
+                    anomaly_type = nl.signature_analysis(analysis_batch,z_score)
                     end_time = time.time() - start_time
-                    print(f"\n Stage 2: Anomaly Detection |  Max Z-score: {np.max(z_score):.4f}  | Time: {end_time:.4f} seconds \n")
+
+                    if 'Legitimate' in anomaly_type:
+                        print(f"\n Threshold Violation identified as: {anomaly_type} \n")
+                    else:
+                        print(f"Anomaly Detected | Type: {anomaly_type} \n")
                 else:
                     end_time = time.time() - start_time
                     print(f"\n Stage 2:  Everything is normal | Time: {end_time:.3f} seconds \n")
@@ -128,7 +133,7 @@ def start_live_ids():
     w_train = 20 
 
     # Thread 1: Sniffer 
-    t_sniff = threading.Thread(target=sniffer_worker, args=(5, 'en0'), daemon=True)
+    t_sniff = threading.Thread(target=sniffer_worker, args=(10, 'en0'), daemon=True)
 
     # Thread 2: Analyzer 
     t_analyze = threading.Thread(
@@ -144,7 +149,7 @@ def start_live_ids():
 
     try:
         while True: 
-            time.sleep(1)
+            time.sleep(0.5)
     except KeyboardInterrupt:
         print("\n Stopping Live IDS... \n")
 

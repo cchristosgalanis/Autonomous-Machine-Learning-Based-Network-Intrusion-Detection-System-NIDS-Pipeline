@@ -275,6 +275,7 @@ def theta_cheb(f_pos_rate):
 
 #-------------------------------------------------------------------------------------------------
 
+#function to compute dynamic windowing for live traffic
 def volatility__dynamic_windowing(window_train,sigma_train,sigma_live):
     """
         this function is for calculating dynamic windowing size for second stability check based on volatility of live traffic and training data.
@@ -290,6 +291,40 @@ def volatility__dynamic_windowing(window_train,sigma_train,sigma_live):
     dynamic_window_size = int(window_train * volatility)
 
     return dynamic_window_size
+
+
+#-------------------------------------------------------------------------------------------------
+
+#function for signature analysis to seperate Speedtest/LargeFile downlod (ligitimate traffic)
+#and DDoS attacks / Port Scan
+def signature_analysis(analysis_batch,z_score):
+    """
+        analyzes the signature of the detected anomaly to distinguish
+        between legitimate bursts and potential attacks
+    """
+
+    #calculate mean value of current anomalous window
+    avg_bytes_s = np.mean(analysis_batch[:.0]) #flow_byts_s
+    avg_pkts_s = np.mean(analysis_batch[:,1]) #flow_pkts_s
+    avg_pkt_len = np.mean(analysis_batch[:,2]) #flow_len_mean
+
+    #logic for signature identification
+    # legitimate traffic
+    if avg_bytes_s > (10*(10**5)) and avg_pkt_len > 1000:
+        return "\n Legitimate Burst (Speedtest\Large Download) \n"
+    
+    # DDoS
+    if avg_bytes_s > 1000 and avg_pkt_len < 150:
+        return "\n Malicious Attack (Potential uDP/ICMP Flood) \n"
+    
+    #Port Scan
+    if avg_pkts_s > 500 and avg_bytes_s < (50*(10**3)):
+        return "\n Malicious Attack (Port Scanning) \n"
+    
+    return "\n Unknown Anomaly (Further check...) \n"
+
+
+
 
 
 

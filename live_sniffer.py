@@ -47,7 +47,7 @@ def capture_live_traffic(capture_duration, interface):
             flow_hash_map[flow_key]['bytes'] += length
 
     sniff(iface=interface, prn=process_packet, store=False,timeout=capture_duration,
-          promisc=False,filter="ip")
+          promisc=False,filter="tcp or udp") #using ip
 
     print("\n Live traffic capture completed. Processing flows ... \n")
     flow_data = []
