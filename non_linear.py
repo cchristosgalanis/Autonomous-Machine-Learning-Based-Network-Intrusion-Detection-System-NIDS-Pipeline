@@ -275,21 +275,21 @@ def theta_cheb(f_pos_rate):
 
 #-------------------------------------------------------------------------------------------------
 
-# def volatility__dynamic_windowing(window_train,sigma_train,sigma_live):
-#     """
-#         this function is for calculating dynamic windowing size for second stability check based on volatility of live traffic and training data.
-#         Arguments: window_train -> windowing size for training data
-#                     sigma_train -> standard deviation of training data
-#                     sigma_live -> standard deviation of live traffic
+def volatility__dynamic_windowing(window_train,sigma_train,sigma_live):
+    """
+        this function is for calculating dynamic windowing size for second stability check based on volatility of live traffic and training data.
+        Arguments: window_train -> windowing size for training data
+                    sigma_train -> standard deviation of training data
+                    sigma_live -> standard deviation of live traffic
 
-#         volatility = sigma_live / sigma_train
-#         dynamic_window_size = window_train * volatility
-#     """
+        volatility = sigma_live / sigma_train
+        dynamic_window_size = window_train * volatility
+    """
 
-#     volatility = sigma_live / sigma_train
-#     dynamic_window_size = int(window_train * volatility)
+    volatility = sigma_live / sigma_train
+    dynamic_window_size = int(window_train * volatility)
 
-#     return dynamic_window_size
+    return dynamic_window_size
 
 
 

@@ -69,10 +69,4 @@ def capture_live_traffic(capture_duration, interface):
 
     df = pd.DataFrame(flow_data)
 
-    print(df)
-
     return df
-
-
-if __name__ == "__main__":
-    capture_live_traffic(capture_duration=20, interface='en0')
