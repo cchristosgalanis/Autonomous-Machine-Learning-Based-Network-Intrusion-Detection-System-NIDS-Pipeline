@@ -22,7 +22,7 @@ def capture_live_traffic(capture_duration, interface):
         if IP in packet:
             src_ip = packet[IP].src
             dst_ip = packet[IP].dst
-            protocol = packet[IP].protocol
+            protocol = packet[IP].proto
             length = len(packet)
 
             src_port = 0
@@ -75,4 +75,4 @@ def capture_live_traffic(capture_duration, interface):
 
 
 if __name__ == "__main__":
-    capture_live_traffic(capture_duration=20, interface='lo0')
+    capture_live_traffic(capture_duration=20, interface='en0')

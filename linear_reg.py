@@ -182,7 +182,6 @@ def linear_regression():
     
     #utilize scaler for data's scaling
     scaler = RobustScaler()
-    scaler1 = RobustScaler()
     #utilize model
     model = LinearRegression()
     
@@ -212,10 +211,6 @@ def linear_regression():
     T_volume = T_volume.reshape(-1,1)
     N_requests = N_requests.reshape(-1,1)
     S_len = S_len.reshape(-1,1)
-
-    #applying RobustScaler to each feature before polynomial expansion
-    N_requests = scaler1.fit_transform(N_requests)
-    S_len = scaler1.fit_transform(S_len)
 
     # --- Polynomial Expansion on Features ---
     #computing quadric features
@@ -290,7 +285,6 @@ def linear_regression():
         joblib.dump(model,'linear_regression_feat_exp.pkl')
         print("\nSaving scaler ...  \n")
         joblib.dump(scaler,'RobustScaler_feat_exp.pkl')
-        joblib.dump(scaler1,'RobustScaler1_feat_exp.pkl')
         np.savez('train_metrics_feature_expansion.npz', mean_train=mean_train, sigma_train=sigma_train)
     except Exception as e:
         print(e)

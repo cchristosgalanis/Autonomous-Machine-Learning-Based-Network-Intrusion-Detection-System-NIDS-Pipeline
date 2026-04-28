@@ -187,8 +187,7 @@ def load_model_and_scaler():
     try:
         model = joblib.load('linear_regression_feat_exp.pkl')
         scaler = joblib.load('RobustScaler_feat_exp.pkl')
-        scaler1 = joblib.load('RobustScaler1_feat_exp.pkl')
-        return model, scaler, scaler1
+        return model, scaler
     except Exception as e:
         print(f"Error loading model or scaler: {e}")
         return None, None
@@ -198,7 +197,7 @@ def load_model_and_scaler():
 
 
 #second residual check | shannon entropy based with linear regression model
-def entropy_based_stab_check(T_volume,N_requests,S_len,window_size,model,scaler,scaler1):
+def entropy_based_stab_check(T_volume,N_requests,S_len,window_size,model,scaler):
     """"
         this function is for checking the residual of live traffic based on shannon entropy and linear regression model.
         Arguments: T_volume -> array of total volume of bytes per flow
@@ -216,10 +215,6 @@ def entropy_based_stab_check(T_volume,N_requests,S_len,window_size,model,scaler,
     T_volume = T_volume.reshape(-1,1)
     N_requests = N_requests.reshape(-1,1)
     S_len = S_len.reshape(-1,1)
-
-    #tranforming features 
-    N_requests = scaler1.transform(N_requests)
-    S_len = scaler1.transform(S_len)
 
     # --- Polnomial Expansion on Features ---
     N_requests_quad = np.square(N_requests)

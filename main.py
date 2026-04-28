@@ -7,7 +7,7 @@ import time
 
 def main():
     try:
-        benign_dataset = pd.read_csv("flows.csv",sep=',')
+        benign_dataset = pd.read_csv("benign.csv",sep=',')
         print("Dataset has been loaded... \n")
     except Exception as e:
         print("Error while loaded dataset!")
@@ -85,7 +85,7 @@ def main():
     #checking further more with shannon entropy and linear regression model
     if flag1 == True:
         try:
-            model, scaler, scaler1 = nl.load_model_and_scaler()
+            model, scaler = nl.load_model_and_scaler()
 
             if model is None or scaler is None:
                 print("Model or scaler could not be loaded. Exiting.")
@@ -93,7 +93,7 @@ def main():
             else:
                 print("Model and Scaler loaded successfully.")
 
-            entropy_residual = nl.entropy_based_stab_check(T_volume,N_requests,S_len,window_size,model,scaler,scaler1)
+            entropy_residual = nl.entropy_based_stab_check(T_volume,N_requests,S_len,window_size,model,scaler)
             print("\n Entropy based residual check has been calculated ... \n")
         except RuntimeError as e:
             print(e)
@@ -102,7 +102,7 @@ def main():
         
         #calculate Z_score threshold and then using 3-sigma rule for checking if there is threshold violation
         z_score = nl.Z_score(entropy_residual)
-        theta_cheb = nl.theta_cheb(0.02)
+        theta_cheb = nl.theta_cheb(0.01)
 
         if np.any(z_score > theta_cheb): 
             print("\n There might be anomalous traffic! \n")
