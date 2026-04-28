@@ -281,9 +281,9 @@ def linear_regression():
 
     #block for saving model and scaler
     try:
-        print("\nSaving model ... \n")
+        print("\n Saving model ... \n")
         joblib.dump(model,'linear_regression_feat_exp.pkl')
-        print("\nSaving scaler ...  \n")
+        print("\n Saving scaler ...  \n")
         joblib.dump(scaler,'RobustScaler_feat_exp.pkl')
         np.savez('train_metrics_feature_expansion.npz', mean_train=mean_train, sigma_train=sigma_train)
     except Exception as e:
