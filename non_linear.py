@@ -297,29 +297,30 @@ def volatility__dynamic_windowing(window_train,sigma_train,sigma_live):
 
 #function for signature analysis to seperate Speedtest/LargeFile downlod (ligitimate traffic)
 #and DDoS attacks / Port Scan
-def signature_analysis(analysis_batch,z_score):
+def signature_analysis(analysis_batch,mean_train,sigma_train):
     """
         analyzes the signature of the detected anomaly to distinguish
         between legitimate bursts and potential attacks
     """
 
     #calculate mean value of current anomalous window
-    avg_bytes_s = np.mean(analysis_batch[:.0]) #flow_byts_s
-    avg_pkts_s = np.mean(analysis_batch[:,1]) #flow_pkts_s
-    avg_pkt_len = np.mean(analysis_batch[:,2]) #flow_len_mean
+    avg_vals = np.mean(analysis_batch,axis=0)
+
+    #define sensitivity 
+    k = 5;
+
+    #dynamic thresholds
+    byte_threshold = mean_train[0] + (k * sigma_train[0])
+    pkt_len_threshold = mean_train[2] + (k * sigma_train[2])
 
     #logic for signature identification
     # legitimate traffic
-    if avg_bytes_s > (10*(10**5)) and avg_pkt_len > 1000:
+    if avg_vals[0] > byte_threshold and avg_vals[2] > pkt_len_threshold:
         return "\n Legitimate Burst (Speedtest\Large Download) \n"
     
     # DDoS
-    if avg_bytes_s > 1000 and avg_pkt_len < 150:
-        return "\n Malicious Attack (Potential uDP/ICMP Flood) \n"
-    
-    #Port Scan
-    if avg_pkts_s > 500 and avg_bytes_s < (50*(10**3)):
-        return "\n Malicious Attack (Port Scanning) \n"
+    if avg_vals[1] > (mean_train[1] + 10 * sigma_train[1]) and avg_vals[2] < mean_train[2]:
+        return "\n Malicious Attack (Potential Flood) \n"
     
     return "\n Unknown Anomaly (Further check...) \n"
 

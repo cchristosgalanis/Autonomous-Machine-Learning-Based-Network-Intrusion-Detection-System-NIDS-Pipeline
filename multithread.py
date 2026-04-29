@@ -90,7 +90,7 @@ def analyzer_worker(w_train, sigma_train, mean_train, theta_cheb, model, scaler)
 
                 # check for anomalies using Chebyshev threshold
                 if np.any(z_score > theta_cheb):
-                    anomaly_type = nl.signature_analysis(analysis_batch,z_score)
+                    anomaly_type = nl.signature_analysis(analysis_batch,mean_train,sigma_train)
                     end_time = time.time() - start_time
 
                     if 'Legitimate' in anomaly_type:
