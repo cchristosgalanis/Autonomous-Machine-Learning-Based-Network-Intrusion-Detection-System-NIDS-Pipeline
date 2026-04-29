@@ -5,6 +5,7 @@ import pandas as pd
 import numpy as np
 import time
 from live_sniffer import capture_live_traffic
+from libpcap_approach import libpcap_capture
 import non_linear as nl
 import time 
 
@@ -18,7 +19,7 @@ def sniffer_worker(duration, interface):
     print(f"\n Active on {interface} | Batch duration: {duration}s")
     while True:
         # Capture and extract flow features
-        df_batch = capture_live_traffic(capture_duration=duration, interface=interface)
+        df_batch = libpcap_capture(capture_duration=duration, interface=interface)
         
         if not df_batch.empty:
             # Place the batch in the queue for processing
@@ -99,7 +100,7 @@ def analyzer_worker(w_train, sigma_train, mean_train, theta_cheb, model, scaler)
                         print(f"Anomaly Detected | Type: {anomaly_type} \n")
                 else:
                     end_time = time.time() - start_time
-                    print(f"\n Stage 2:  Everything is normal | Time: {end_time:.3f} seconds \n")
+                    print(f"\n Stage 2:  Everything is normal | Time: {end_time:.8f} seconds \n")
 
             else:
                 print(f" Stage 1: Traffic is stable \n")
@@ -133,7 +134,7 @@ def start_live_ids():
     w_train = 20 
 
     # Thread 1: Sniffer 
-    t_sniff = threading.Thread(target=sniffer_worker, args=(10, 'en0'), daemon=True)
+    t_sniff = threading.Thread(target=sniffer_worker, args=(2, 'lo0'), daemon=True)
 
     # Thread 2: Analyzer 
     t_analyze = threading.Thread(
