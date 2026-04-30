@@ -10,7 +10,7 @@ def libpcap_capture(capture_duration, interface):
     
     # Open interface: max bytes, promiscuous, timeout
     cap = pcapy.open_live(interface, 65536, 1, 100)
-    cap.setfilter("tcp or udp") # BPF filter at kernel level
+    cap.setfilter("ip") # BPF filter at kernel level
 
     flow_hash_map = {}
     start_time = time.time()

@@ -73,7 +73,7 @@ def renyi_entropy(array,window_size,alpha):
             #shannon entropy if alpha is 1
             entropy_renyi[i] = -np.sum(temp * np.log2(temp))
         else:
-            #renyi entropy approach
+            #renyi entropy approachh
             entropy_renyi[i] = (1/(1-alpha)) * np.log2(np.sum(temp**alpha))
 
     #return array
@@ -107,33 +107,8 @@ def norm_datas(array,window_size):
         arguments: array -> numpy array for each feature
                     window_size -> windowing in same size
         it is: x_norm = (x - x_min) / (x_max - x_min)
-    
     """
-    number_samples = int(np.floor(len(array)/window_size))
-    mean_val = np.zeros(number_samples)
-    std_val = np.zeros(number_samples)
-
-    for i in range(number_samples):
-        start_idx = i * window_size
-        end_idx = start_idx + window_size
-
-        temp_idx = array[start_idx : end_idx]
-        temp = np.histogram(temp_idx,density=False,bins= 2 * int(np.ceil(window_size**(2/3))))
-        count = temp[0]
-        temp = count / np.sum(count)
-
-        low = np.min(temp)
-        high = np.max(temp)
-
-        if low == high:
-            print("Function returned an array with zeros")
-            return array * 0
-        else:
-            norm_array = (temp - low) / (high - low)
-            mean_val[i] = np.mean(norm_array)
-            std_val[i] = np.std(norm_array)
-
-    return mean_val, std_val
+    return np.mean(array),np.std(array)
 
 
 #-------------------------------------------------------------------------------------------------
@@ -157,7 +132,7 @@ def windowing_live_function(live_traffic,window_size):
 
 
 #first residual check 
-def first_stab_check(norm_array,live_traffic_array,window_size):
+def first_stab_check(means,stds,live_traffic_array):
     """
         Vectorized stabillity check
     
@@ -170,13 +145,7 @@ def first_stab_check(norm_array,live_traffic_array,window_size):
         |T(t) - μ_t| = stabilitty
     """
 
-    residual = np.zeros_like(live_traffic_array)
-
-    for k in range(live_traffic_array.shape[1]):
-        current_slice = live_traffic_array[:,k,:]
-
-        residual[:,k,:] = np.abs(current_slice - norm_array)
-
+    residual = np.abs(live_traffic_array - means)
     return residual
 
 #-------------------------------------------------------------------------------------------------
@@ -242,18 +211,8 @@ def entropy_based_stab_check(T_volume,N_requests,S_len,window_size,model,scaler)
 
 
 #function for calculating Z-score for compute threshold for second stability check
-def Z_score(residual):
-    try:
-        print("\n Loading training metrics ... \n")
-        parameters = np.load('train_metrics_feature_expansion.npz')
-        mean_train = parameters['mean_train']
-        sigma_train = parameters['sigma_train']
-    except Exception as e:
-        print(f"Error loading training metrics: {e}")
-        return None
-    
+def Z_score(residual,mean_train,sigma_train):
     z_score = (residual - mean_train) / sigma_train
-    
     return z_score
 
 
@@ -297,32 +256,30 @@ def volatility__dynamic_windowing(window_train,sigma_train,sigma_live):
 
 #function for signature analysis to seperate Speedtest/LargeFile downlod (ligitimate traffic)
 #and DDoS attacks / Port Scan
-def signature_analysis(analysis_batch,mean_train,sigma_train):
+def signature_analysis(analysis_batch,raw_mean,raw_std):
     """
         analyzes the signature of the detected anomaly to distinguish
         between legitimate bursts and potential attacks
     """
 
-    #calculate mean value of current anomalous window
     avg_vals = np.mean(analysis_batch,axis=0)
+    k = 5
 
-    #define sensitivity 
-    k = 5;
+    """
+        0 -> bytes_s
+        1 -> pkts_s
+        2 -> pkt_len_mean
+    """
+    byte_threshold = raw_mean[0] + (k * raw_std[0])
+    pkt_len_threshold = raw_mean[2] + (k * raw_std[2])
 
-    #dynamic thresholds
-    byte_threshold = mean_train[0] + (k * sigma_train[0])
-    pkt_len_threshold = mean_train[2] + (k * sigma_train[2])
-
-    #logic for signature identification
-    # legitimate traffic
     if avg_vals[0] > byte_threshold and avg_vals[2] > pkt_len_threshold:
-        return "\n Legitimate Burst (Speedtest\Large Download) \n"
+        return "Legitimate Burst (Speedtest/Large Download)"
+
+    if avg_vals[1] > (raw_mean[1] + 10 * raw_std[1]) and avg_vals[2] < raw_mean[2]:
+        return "Malicious Attack (Potential Flood)"
     
-    # DDoS
-    if avg_vals[1] > (mean_train[1] + 10 * sigma_train[1]) and avg_vals[2] < mean_train[2]:
-        return "\n Malicious Attack (Potential Flood) \n"
-    
-    return "\n Unknown Anomaly (Further check...) \n"
+    return "Unknown Anomaly (Further check...)"
 
 
 

@@ -31,7 +31,7 @@ def sniffer_worker(duration, interface):
 
 # Consumer Thread: Analysis & Detection
 # Optimized to receive pre-loaded model, scaler, and training metrics
-def analyzer_worker(w_train, sigma_train, mean_train, theta_cheb, model, scaler):
+def analyzer_worker(w_train, sigma_train, mean_train, raw_mean, raw_std, theta_cheb, model, scaler):
     # Sliding window buffer (traffic history)
     buffer = deque(maxlen=150) 
     print("\n Linear Regression Model initialized \n")
@@ -68,39 +68,57 @@ def analyzer_worker(w_train, sigma_train, mean_train, theta_cheb, model, scaler)
             f_byts_m, f_byts_s = nl.norm_datas(T_vol, actual_w)
             f_pkts_m, f_pkts_s = nl.norm_datas(N_req, actual_w)
             f_dur_m, f_dur_s = nl.norm_datas(S_len, actual_w)
-
-            norm_flows_mean = np.column_stack([f_byts_m, f_pkts_m, f_dur_m])
-            norm_flows_std = np.column_stack([f_byts_s, f_pkts_s, f_dur_s])
+            
+            current_window_mean = np.mean(analysis_batch,axis=0)
+            residual_1 = np.abs(current_window_mean - raw_mean)
             
             live_traffic_reshaped = analysis_batch.reshape(1, actual_w, 3)
+
+            means = np.array([f_byts_m,f_pkts_m,f_dur_m])
+            stds = np.array([f_byts_s,f_pkts_s,f_dur_s])
             
             # Calculate first stage residuals
-            residual_1 = nl.first_stab_check(norm_flows_mean, live_traffic_reshaped, actual_w)
-            threshold1_f = 0.1 * norm_flows_std
+            residual_1 = nl.first_stab_check(means,stds,analysis_batch)
+            threshold1_f = 0.1 * raw_std
             
-            # check to trigger second stage
-            if np.any(residual_1 > threshold1_f[:, np.newaxis, :]):
+           # check to trigger second stage
+            if np.any(residual_1 > threshold1_f):
                 print(f"\n Stage 1: Unstable traffic detected \n")
                 
-                # --- Entropy-Based Regression Check ---
                 start_time = time.time()
-                entropy_res = nl.entropy_based_stab_check(T_vol, N_req, S_len, actual_w, model, scaler)
                 
-                # compute Z-score calculation using pre-loaded metrics
-                z_score = (entropy_res - mean_train) / sigma_train
-
-                # check for anomalies using Chebyshev threshold
-                if np.any(z_score > theta_cheb):
-                    anomaly_type = nl.signature_analysis(analysis_batch,mean_train,sigma_train)
+                anomaly_type = nl.signature_analysis(analysis_batch, raw_mean, raw_std)
+                
+                if "Unknown" not in anomaly_type:
+                    # Το σύστημα έπιασε ξεκάθαρο DDoS ή Speedtest βάσει όγκου!
                     end_time = time.time() - start_time
-
-                    if 'Legitimate' in anomaly_type:
-                        print(f"\n Threshold Violation identified as: {anomaly_type} \n")
-                    else:
-                        print(f"Anomaly Detected | Type: {anomaly_type} \n")
+                    timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
+                    
+                    log_message = f"[{timestamp}] ALERT: {anomaly_type} | Detected via Volume Signature\n"
+                    with open("ids_alerts.log", "a", encoding="utf-8") as log_file:
+                        log_file.write(log_message)
+                        
+                    print(f"!!! Anomaly Detected | Type: {anomaly_type}")
+                
                 else:
-                    end_time = time.time() - start_time
-                    print(f"\n Stage 2:  Everything is normal | Time: {end_time:.8f} seconds \n")
+                    entropy_res = nl.entropy_based_stab_check(T_vol, N_req, S_len, actual_w, model, scaler)
+                    
+                    # Υπολογισμός Z-score
+                    z_score = (entropy_res - mean_train) / sigma_train
+                    
+                    if np.any(z_score > theta_cheb):
+                        end_time = time.time() - start_time
+                        timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
+                        max_z = np.max(z_score)
+                        
+                        log_message = f"[{timestamp}] ALERT: Stealth Entropy Anomaly | Max Z-Score: {max_z:.2f} | Threshold: {theta_cheb:.2f}\n"
+                        with open("ids_alerts.log", "a", encoding="utf-8") as log_file:
+                            log_file.write(log_message)
+                            
+                        print(f"!!! Anomaly Detected | Type: Stealth Entropy Shift (Z: {max_z:.2f})")
+                    else:
+                        end_time = time.time() - start_time
+                        print(f" Stage 2: Everything is normal | Time: {end_time:.8f} seconds \n")
 
             else:
                 print(f" Stage 1: Traffic is stable \n")
@@ -123,6 +141,8 @@ def start_live_ids():
         params = np.load('train_metrics_feature_expansion.npz')
         sigma_train = params['sigma_train']
         mean_train = params['mean_train']
+        raw_mean = params['raw_mean']
+        raw_std = params['raw_std']
     except Exception as e:
         print(e)
         return 
@@ -139,7 +159,7 @@ def start_live_ids():
     # Thread 2: Analyzer 
     t_analyze = threading.Thread(
         target=analyzer_worker, 
-        args=(w_train, sigma_train, mean_train, theta_cheb, model, scaler), 
+        args=(w_train, sigma_train, mean_train, raw_mean, raw_std, theta_cheb, model, scaler), 
         daemon=True
     )
 
