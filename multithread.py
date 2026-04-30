@@ -29,12 +29,16 @@ def sniffer_worker(duration, interface):
 # ---------------------------------------------------------------------------------------------------------
 
 
-# Consumer Thread: Analysis & Detection
-# Optimized to receive pre-loaded model, scaler, and training metrics
-def analyzer_worker(w_train, sigma_train, mean_train, raw_mean, raw_std, theta_cheb, model, scaler):
+# Consumer Thread: Kinematic Analysis & Detection
+# Optimized to receive pre-loaded model, scaler, and kinematic threshold
+def analyzer_worker(w_train, kinematic_threshold, model, scaler):
     # Sliding window buffer (traffic history)
     buffer = deque(maxlen=150) 
-    print("\n Linear Regression Model initialized \n")
+    
+    # Kinematic memory buffer (keeps exactly the last 3 residual steps: t-2, t-1, t)
+    residual_memory = deque(maxlen=3) 
+    
+    print("\n Linear Regression Model & Kinematic Analyzer initialized \n")
     
     while True:
         # Get new batch of data from the sniffer
@@ -48,78 +52,63 @@ def analyzer_worker(w_train, sigma_train, mean_train, raw_mean, raw_std, theta_c
         if len(buffer) >= w_train:
             current_data = np.array(list(buffer))
             
-            # compute dynamic window size based on live volatility
-            sigma_live = np.std(current_data, axis=0).mean()
-            w_dynamic = int(w_train * (sigma_live / sigma_train.mean()))
-            
-            # w_dynamic does not exceed current buffer size or limits
-            w_dynamic = max(15, min(w_dynamic, 50, len(buffer))) 
-            
-            # select the current analysis window
-            analysis_batch = current_data[-w_dynamic:]
+            # Select the current analysis window
+            analysis_batch = current_data[-w_train:]
             actual_w = len(analysis_batch) # Get size of the slice
             
             T_vol = analysis_batch[:, 0]
             N_req = analysis_batch[:, 1]
             S_len = analysis_batch[:, 2]
 
-            # --- First Stability Check (Residuals vs Threshold) ---
+            # --- Entropy & ML Prediction ---
+            # Compute residuals using Shannon/Renyi entropy and Linear Regression
+            entropy_res_array = nl.entropy_based_stab_check(T_vol, N_req, S_len, actual_w, model, scaler)
             
-            current_window_mean = np.mean(analysis_batch,axis=0)
-            res_diff = np.abs(current_window_mean - raw_mean)
-
+            # Extract the current residual value (scalar number)
+            # Taking the mean of the array to get a single representation of the current window's error
+            current_residual = float(np.mean(entropy_res_array))
             
-            # Calculate first stage residuals
-            threshold1_f = 0.1 * raw_std
-
-            print(f"\n[DEBUG] Raw Mean (Trained): {raw_mean}")
-            print(f"[DEBUG] Current Mean (Live):  {current_window_mean}")
-            print(f"[DEBUG] Difference (Res_diff):{res_diff}")
-            print(f"[DEBUG] Threshold:          {threshold1_f}")
-            print("-" * 40)
+            # Update the kinematic memory with the latest residual
+            residual_memory.append(current_residual)
             
-           # check to trigger second stage
-            if np.any(res_diff > threshold1_f):
-                print(f"\n Stage 1: Unstable traffic detected \n")
-                
+            # --- Kinematic Stability Check (1st and 2nd Derivative) ---
+            
+            # Check if we have gathered enough steps (t-2, t-1, t)
+            if len(residual_memory) == 3:
                 start_time = time.time()
                 
-                anomaly_type = nl.signature_analysis(analysis_batch, raw_mean, raw_std)
+                # Calculate the 2nd derivative (acceleration) of the error
+                acceleration = nl.compute_kinematic(list(residual_memory))
+
+                print(f"\n[DEBUG] Current Residual: {current_residual:.4f}")
+                print(f"[DEBUG] Acceleration:     {acceleration:.4f}")
+                print(f"[DEBUG] Threshold:        {kinematic_threshold}")
+                print("-" * 40)
                 
-                if "Unknown" not in anomaly_type:
+                # Dynamic Decision based on the acceleration spike
+                if abs(acceleration) > kinematic_threshold:
                     end_time = time.time() - start_time
                     timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
                     
-                    log_message = f"[{timestamp}] ALERT: {anomaly_type} | Detected via Volume Signature\n"
+                    log_message = f"[{timestamp}] ALERT: Abrupt Kinematic Anomaly (DDoS/Scan) | Acceleration Spike: {acceleration:.4f}\n"
+                    
                     with open("ids_alerts.log", "a", encoding="utf-8") as log_file:
                         log_file.write(log_message)
                         
-                    print(f"!!! Anomaly Detected | Type: {anomaly_type}")
-                
+                    print(f"!!! Anomaly Detected | Type: Kinematic Shift | Time: {end_time:.8f} seconds")
+                    
+                    # Clear kinematic memory to prevent alert flooding from the same spike
+                    residual_memory.clear()
+                    
                 else:
-                    entropy_res = nl.entropy_based_stab_check(T_vol, N_req, S_len, actual_w, model, scaler)
-                    
-                    # compute Z-score
-                    z_score = (entropy_res - mean_train) / sigma_train
-                    
-                    if np.any(z_score > theta_cheb):
-                        end_time = time.time() - start_time
-                        timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
-                        max_z = np.max(z_score)
-                        
-                        log_message = f"[{timestamp}] ALERT: Stealth Entropy Anomaly | Max Z-Score: {max_z:.2f} | Threshold: {theta_cheb:.2f}\n"
-                        with open("ids_alerts.log", "a", encoding="utf-8") as log_file:
-                            log_file.write(log_message)
-                            
-                        print(f"!!! Anomaly Detected | Type: Stealth Entropy Shift (Z: {max_z:.2f})")
-                    else:
-                        end_time = time.time() - start_time
-                        print(f" Stage 2: Everything is normal | Time: {end_time:.8f} seconds \n")
-
+                    end_time = time.time() - start_time
+                    print(f" Kinematics are stable | Everything is normal | Time: {end_time:.8f} seconds \n")
+            
             else:
-                print(f" Stage 1: Traffic is stable \n")
+                # Waiting for memory to fill up
+                print(f" Warming up kinematic memory... ({len(residual_memory)}/3 steps) \n")
         
-        # signal that the batch processing is complete
+        # Signal that the batch processing is complete
         data_queue.task_done()
 
 
@@ -148,14 +137,15 @@ def start_live_ids():
     
     # training window size
     w_train = 20 
+    kinematic_threshold = 1.0
 
     # Thread 1: Sniffer 
-    t_sniff = threading.Thread(target=sniffer_worker, args=(2, 'lo0'), daemon=True)
+    t_sniff = threading.Thread(target=sniffer_worker, args=(1, 'lo0'), daemon=True)
 
     # Thread 2: Analyzer 
     t_analyze = threading.Thread(
         target=analyzer_worker, 
-        args=(w_train, sigma_train, mean_train, raw_mean, raw_std, theta_cheb, model, scaler), 
+        args=(w_train, kinematic_threshold,model,scaler), 
         daemon=True
     )
 

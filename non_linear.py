@@ -282,6 +282,31 @@ def signature_analysis(analysis_batch,raw_mean,raw_std):
     return "Unknown Anomaly (Further check...)"
 
 
+#-------------------------------------------------------------------------------------------------
+
+#function for kinematic analysis
+def compute_kinematic(residual_memory):
+    """
+        compute 1st and 2nd derivatives on residual
+        arguments: list with 3 last residuals [R(t-2),R(t-1),R(t)]
+        returns: acceleration -> 2nd derivative of residual
+    """
+
+    if len(residual_memory) < 3:
+        return 0.0
+    
+    R_t2 = residual_memory[0] #(t-2)
+    R_t1 = residual_memory[1] #(t-1)
+    R_t = residual_memory[2] #(t)
+
+    V_old = R_t1 - R_t2
+    V_new = R_t - R_t1
+
+    # 2nd derivative -> R(t) - 2R(t-1) + R(t-2)
+    acceleration = V_new - V_old
+
+    return acceleration
+
 
 
 
