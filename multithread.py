@@ -64,25 +64,22 @@ def analyzer_worker(w_train, sigma_train, mean_train, raw_mean, raw_std, theta_c
             S_len = analysis_batch[:, 2]
 
             # --- First Stability Check (Residuals vs Threshold) ---
-            # calculate μ and σ using actual window size
-            f_byts_m, f_byts_s = nl.norm_datas(T_vol, actual_w)
-            f_pkts_m, f_pkts_s = nl.norm_datas(N_req, actual_w)
-            f_dur_m, f_dur_s = nl.norm_datas(S_len, actual_w)
             
             current_window_mean = np.mean(analysis_batch,axis=0)
-            residual_1 = np.abs(current_window_mean - raw_mean)
-            
-            live_traffic_reshaped = analysis_batch.reshape(1, actual_w, 3)
+            res_diff = np.abs(current_window_mean - raw_mean)
 
-            means = np.array([f_byts_m,f_pkts_m,f_dur_m])
-            stds = np.array([f_byts_s,f_pkts_s,f_dur_s])
             
             # Calculate first stage residuals
-            residual_1 = nl.first_stab_check(means,stds,analysis_batch)
             threshold1_f = 0.1 * raw_std
+
+            print(f"\n[DEBUG] Raw Mean (Trained): {raw_mean}")
+            print(f"[DEBUG] Current Mean (Live):  {current_window_mean}")
+            print(f"[DEBUG] Difference (Res_diff):{res_diff}")
+            print(f"[DEBUG] Threshold:          {threshold1_f}")
+            print("-" * 40)
             
            # check to trigger second stage
-            if np.any(residual_1 > threshold1_f):
+            if np.any(res_diff > threshold1_f):
                 print(f"\n Stage 1: Unstable traffic detected \n")
                 
                 start_time = time.time()
@@ -90,7 +87,6 @@ def analyzer_worker(w_train, sigma_train, mean_train, raw_mean, raw_std, theta_c
                 anomaly_type = nl.signature_analysis(analysis_batch, raw_mean, raw_std)
                 
                 if "Unknown" not in anomaly_type:
-                    # Το σύστημα έπιασε ξεκάθαρο DDoS ή Speedtest βάσει όγκου!
                     end_time = time.time() - start_time
                     timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
                     
@@ -103,7 +99,7 @@ def analyzer_worker(w_train, sigma_train, mean_train, raw_mean, raw_std, theta_c
                 else:
                     entropy_res = nl.entropy_based_stab_check(T_vol, N_req, S_len, actual_w, model, scaler)
                     
-                    # Υπολογισμός Z-score
+                    # compute Z-score
                     z_score = (entropy_res - mean_train) / sigma_train
                     
                     if np.any(z_score > theta_cheb):
@@ -148,7 +144,7 @@ def start_live_ids():
         return 
     
     # compute Chebyshev threshold
-    theta_cheb = nl.theta_cheb(0.01)
+    theta_cheb = nl.theta_cheb(0.05)
     
     # training window size
     w_train = 20 
@@ -170,7 +166,7 @@ def start_live_ids():
 
     try:
         while True: 
-            time.sleep(0.5)
+            time.sleep(1)
     except KeyboardInterrupt:
         print("\n Stopping Live IDS... \n")
 

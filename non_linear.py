@@ -276,7 +276,7 @@ def signature_analysis(analysis_batch,raw_mean,raw_std):
     if avg_vals[0] > byte_threshold and avg_vals[2] > pkt_len_threshold:
         return "Legitimate Burst (Speedtest/Large Download)"
 
-    if avg_vals[1] > (raw_mean[1] + 10 * raw_std[1]) and avg_vals[2] < raw_mean[2]:
+    if avg_vals[1] > (raw_mean[1] + 5 * raw_std[1]) and avg_vals[2] < raw_mean[2]:
         return "Malicious Attack (Potential Flood)"
     
     return "Unknown Anomaly (Further check...)"
