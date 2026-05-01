@@ -61,7 +61,7 @@ def analyzer_worker(w_train, kinematic_threshold, model, scaler):
             S_len = analysis_batch[:, 2]
 
             # --- Entropy & ML Prediction ---
-            # Compute residuals using Shannon/Renyi entropy and Linear Regression
+            # Compute residuals using Renyi entropy and Linear Regression
             entropy_res_array = nl.entropy_based_stab_check(T_vol, N_req, S_len, actual_w, model, scaler)
             
             # Extract the current residual value (scalar number)
@@ -140,7 +140,7 @@ def start_live_ids():
     kinematic_threshold = 1.0
 
     # Thread 1: Sniffer 
-    t_sniff = threading.Thread(target=sniffer_worker, args=(1, 'lo0'), daemon=True)
+    t_sniff = threading.Thread(target=sniffer_worker, args=(1, 'en0'), daemon=True)
 
     # Thread 2: Analyzer 
     t_analyze = threading.Thread(

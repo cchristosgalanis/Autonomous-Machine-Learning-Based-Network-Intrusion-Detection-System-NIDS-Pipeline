@@ -163,6 +163,7 @@ def plot_3d_regression(model, scaler, xtest, ytest):
     
     ax.legend(loc='upper left')
     fig.colorbar(surf, ax=ax, shrink=0.5, aspect=10, label='Predicted Entropy Level')
+    plt.savefig('Visualize 2nd Degree Polynomial Regression.png', dpi=300, bbox_inches='tight')
     
     plt.show()
 
@@ -282,16 +283,16 @@ def linear_regression():
     raw_mean = np.array([np.mean(benign_dataset['flow_byts_s']), np.mean(benign_dataset['flow_pkts_s']), np.mean(benign_dataset['pkt_len_mean'])])
     raw_std = np.array([np.std(benign_dataset['flow_byts_s']), np.std(benign_dataset['flow_pkts_s']), np.std(benign_dataset['pkt_len_mean'])])
 
-    #block for saving model and scaler
-    try:
-        print("\n Saving model ... \n")
-        joblib.dump(model,'linear_regression_feat_exp.pkl')
-        print("\n Saving scaler ...  \n")
-        joblib.dump(scaler,'RobustScaler_feat_exp.pkl')
-        np.savez('train_metrics_feature_expansion.npz', mean_train=mean_train, sigma_train=sigma_train, raw_mean=raw_mean, raw_std=raw_std)
-    except Exception as e:
-        print(e)
-        return
+    # #block for saving model and scaler
+    # try:
+    #     print("\n Saving model ... \n")
+    #     joblib.dump(model,'linear_regression_feat_exp.pkl')
+    #     print("\n Saving scaler ...  \n")
+    #     joblib.dump(scaler,'RobustScaler_feat_exp.pkl')
+    #     np.savez('train_metrics_feature_expansion.npz', mean_train=mean_train, sigma_train=sigma_train, raw_mean=raw_mean, raw_std=raw_std)
+    # except Exception as e:
+    #     print(e)
+    #     return
     
 
 if __name__ == '__main__':
