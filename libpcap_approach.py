@@ -21,7 +21,6 @@ def libpcap_capture(capture_duration, interface):
             header, data = cap.next()
             if not data:
                 continue
-
             
             total_packets += 1
             total_bytes += len(data)
