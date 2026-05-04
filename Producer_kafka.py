@@ -41,7 +41,6 @@ def Producer_func():
                 producer.produce(topic=topic_name, value=bytes, callback=callback)
 
                 producer.poll(0)
-                time.sleep(1)
     except KeyboardInterrupt:
         print("\n Stopping Sniffer ... \n")
 

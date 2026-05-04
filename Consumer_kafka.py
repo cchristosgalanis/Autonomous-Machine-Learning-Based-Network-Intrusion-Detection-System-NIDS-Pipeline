@@ -30,7 +30,7 @@ def Consumer_func():
 
     # --- parameters and buffers initialization ---
     w_train = 20 
-    kinematic_threshold = 1.0
+    kinematic_threshold = 0.8 # or 1.0
     
     # sliding window buffer 
     buffer = deque(maxlen=150) 
@@ -122,7 +122,7 @@ def Consumer_func():
                             attack_time = time.time()
 
                             # check signature to classify the anomaly
-                            anomaly_type = nl.signature_analysis(analysis_batch, raw_mean, raw_std)
+                            anomaly_type = nl.signature_analysis(current_data[-1:], raw_mean, raw_std) # previous version was analysis_batch
                         
                             log_message = f"[{timestamp}] ALERT: {anomaly_type} started! | Acceleration Spike: {acceleration:.4f}\n"
                         
@@ -146,11 +146,18 @@ def Consumer_func():
                 else:
                     # under_attacl -> True
                     # evaluate current traffic using signature analysis
-                    current_status = nl.signature_analysis(analysis_batch, raw_mean, raw_std)
+                    current_status = nl.signature_analysis(current_data[-1:], raw_mean, raw_std)
                     
                     if current_status == "Malicious Attack (Potential Flood)":
                         # attack is sustaining
-                        print("... attack is still ongoing ...")
+                        timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
+                        log_msg_ongoing = f"[{timestamp}] ALERT ONGOING: {current_status} is still active...\n"
+
+                        with open("ids_alerts.log", "a", encoding="utf-8") as log_file:
+                            log_file.write(log_msg_ongoing)
+                            
+                        print(f"[{timestamp}] ... attack is still ongoing ...")
+
                     else:
                         # traffic normalized
                         under_attack = False
