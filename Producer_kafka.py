@@ -25,14 +25,23 @@ def Producer_func():
             #check for arguments in function libpcap_capture
             flow_data = libpcap_capture(capture_duration=1,interface='en0')
 
-            json_string = json.dumps(flow_data)
-            bytes = json_string.encode('utf-8')
+            if not flow_data.empty:
+                row = flow_data.iloc[0]
 
-            #send to Kafka
-            producer.produce(topic=topic_name, value=bytes, callback=callback)
+                flow_dict = {
+                    "T_vol": float(row['flow_byts_s']),
+                    "N_req": float(row['flow_pkts_s']),
+                    "S_len": float(row['pkt_len_mean'])
+                }
 
-            producer.poll(0)
-            time.sleep(1)
+                json_string = json.dumps(flow_dict)
+                bytes = json_string.encode('utf-8')
+
+                #send to Kafka
+                producer.produce(topic=topic_name, value=bytes, callback=callback)
+
+                producer.poll(0)
+                time.sleep(1)
     except KeyboardInterrupt:
         print("\n Stopping Sniffer ... \n")
 
