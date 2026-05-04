@@ -104,7 +104,7 @@ def Consumer_func():
                 residual_memory.append(current_residual)
                 
                 if not under_attack:
-                    # STATE: NORMAL (looking for acceleration spike)
+                    # benign (looking for acceleration spike)
                     
                     if len(residual_memory) == 3:
                         start_time = time.time()
@@ -112,7 +112,7 @@ def Consumer_func():
                         # calculate 2nd derivative (acceleration)
                         acceleration = nl.compute_kinematic(list(residual_memory))
 
-                        # decision based on kinematic threshold (Trigger ON)
+                        # decision based on kinematic threshold 
                         if abs(acceleration) > kinematic_threshold:
                             end_time = time.time() - start_time
                             timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
@@ -152,7 +152,7 @@ def Consumer_func():
                         # attack is sustaining
                         print("... attack is still ongoing ...")
                     else:
-                        # traffic normalized (Trigger OFF)
+                        # traffic normalized
                         under_attack = False
                         attack_duration = time.time() - attack_time
                         
