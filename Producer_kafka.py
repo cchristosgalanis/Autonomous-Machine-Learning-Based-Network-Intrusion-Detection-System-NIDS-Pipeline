@@ -18,12 +18,13 @@ def Producer_func():
     producer = Producer(conf)
 
     topic_name = 'live-network-flows'
+    active_flow_states = {}
 
     try:
         while True:
             #call libpcap function from libpcap_approach file to sniff network
             #check for arguments in function libpcap_capture
-            flow_data = libpcap_capture(capture_duration=1,interface='en0')
+            flow_data = libpcap_capture(capture_duration=1,interface='en0',flow_states=active_flow_states)
 
             if not flow_data.empty:
                 row = flow_data.iloc[0]
