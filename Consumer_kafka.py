@@ -124,7 +124,7 @@ def Consumer_func():
                             # check signature to classify the anomaly
                             anomaly_type = nl.signature_analysis(current_data[-1:], raw_mean, raw_std) # previous version was analysis_batch
                         
-                            log_message = f"[{timestamp}] ALERT: {anomaly_type} started! | Acceleration Spike: {acceleration:.4f}\n"
+                            log_message = f"[{timestamp}] Anomaly: {anomaly_type} started! | Acceleration Spike: {acceleration:.4f}\n"
                         
                             # log alert to file
                             with open("ids_alerts.log", "a", encoding="utf-8") as log_file:
@@ -151,7 +151,7 @@ def Consumer_func():
                     if current_status == "Malicious Attack (Potential Flood)":
                         # attack is sustaining
                         timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
-                        log_msg_ongoing = f"[{timestamp}] ALERT ONGOING: {current_status} is still active...\n"
+                        log_msg_ongoing = f"[{timestamp}]  Attacl Ongoing: {current_status} is still active...\n"
 
                         with open("ids_alerts.log", "a", encoding="utf-8") as log_file:
                             log_file.write(log_msg_ongoing)
