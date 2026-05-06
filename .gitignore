@@ -10,6 +10,9 @@ Diagrams/
 # Datasets (Large CSV files)
 *.csv
 
+# log files
+*.log
+
 # OS generated files
 .DS_Store
 

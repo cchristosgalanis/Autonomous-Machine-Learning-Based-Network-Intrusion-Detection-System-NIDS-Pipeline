@@ -3,6 +3,7 @@ import pandas as pd
 import time 
 import dpkt
 import numpy as np
+import socket
 
 def libpcap_capture(capture_duration, interface,flow_states):
     print(f"\n [Libpcap] Starting time-window capture on {interface}...")
@@ -40,7 +41,7 @@ def libpcap_capture(capture_duration, interface,flow_states):
             if isinstance(eth.data, dpkt.ip.IP):
                 ip = eth.data
 
-                if isinstance(ip.data, dpkt.ip.IP):
+                if isinstance(ip.data, dpkt.tcp.TCP):
                     tcp = ip.data
 
                     # unique destination ports
@@ -58,6 +59,8 @@ def libpcap_capture(capture_duration, interface,flow_states):
                     if flow_key in flow_states:
                         iat = packet_time - flow_states[flow_key]
                         curr_window_iats.append(iat)
+
+                    flow_states[flow_key] = packet_time
 
 
         except Exception:
@@ -86,7 +89,7 @@ def libpcap_capture(capture_duration, interface,flow_states):
         'unique_ports': port_scan_intensity,
         'syn_ack_ratio': float(syn_ack_ratio),
         'iat_mean': iat_mean,
-        'iat-std': iat_std
+        'iat_std': iat_std
     }]
 
     return pd.DataFrame(flow_data)
