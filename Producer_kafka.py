@@ -27,23 +27,24 @@ def Producer_func():
             flow_data = libpcap_capture(capture_duration=1,interface='en0',flow_states=active_flow_states)
 
             if not flow_data.empty:
-                row = flow_data.iloc[0]
+                # iterate over all rows (all IPs)
+                for index, row in flow_data.iterrows():
+                    flow_dict = {
+                        "Source_IP": str(row['Source_IP']),
+                        "T_vol": float(row['flow_byts_s']),
+                        "N_req": float(row['flow_pkts_s']),
+                        "S_len": float(row['pkt_len_mean']),
+                        'U_ports': int(row['unique_ports']),
+                        'SA_ratio': float(row['syn_ack_ratio']),
+                        'IAT_mean': float(row['iat_mean']),
+                        'IAT_std': float(row['iat_std'])
+                    }
 
-                flow_dict = {
-                    "T_vol": float(row['flow_byts_s']),
-                    "N_req": float(row['flow_pkts_s']),
-                    "S_len": float(row['pkt_len_mean']),
-                    'U_ports': int(row['unique_ports']),
-                    'SA_ratio': float(row['syn_ack_ratio']),
-                    'IAT_mean': float(row['iat_mean']),
-                    'IAT_std': float(row['iat_std'])
-                }
+                    json_string = json.dumps(flow_dict)
+                    bytes = json_string.encode('utf-8')
 
-                json_string = json.dumps(flow_dict)
-                bytes = json_string.encode('utf-8')
-
-                #send to Kafka
-                producer.produce(topic=topic_name, value=bytes, callback=callback)
+                    #send to Kafka
+                    producer.produce(topic=topic_name, value=bytes, callback=callback)
 
                 producer.poll(0)
     except KeyboardInterrupt:
@@ -54,5 +55,3 @@ def Producer_func():
 
 if __name__ == "__main__":
     Producer_func()
-
-

@@ -31,6 +31,7 @@ def Consumer_func():
     # --- parameters and buffers initialization ---
     w_train = 20 
     kinematic_threshold = 0.8 # or 1.0
+    velocity_threshold = 0.5  # threshold for 1st derivative 
     
     # sliding window buffer 
     buffer = deque(maxlen=150) 
@@ -104,16 +105,16 @@ def Consumer_func():
                 residual_memory.append(current_residual)
                 
                 if not under_attack:
-                    # benign (looking for acceleration spike)
+                    # benign (looking for velocity or acceleration spike)
                     
-                    if len(residual_memory) == 3:
+                    if len(residual_memory) >= 2:
                         start_time = time.time()
                     
-                        # calculate 2nd derivative (acceleration)
-                        acceleration = nl.compute_kinematic(list(residual_memory))
+                        # calculate 1st (velocity) and 2nd (acceleration) derivatives
+                        velocity, acceleration = nl.compute_kinematic(list(residual_memory))
 
-                        # decision based on kinematic threshold 
-                        if abs(acceleration) > kinematic_threshold:
+                        # decision based on velocity OR acceleration threshold
+                        if abs(velocity) > velocity_threshold or (len(residual_memory) == 3 and abs(acceleration) > kinematic_threshold):
                             end_time = time.time() - start_time
                             timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
                             
@@ -122,36 +123,36 @@ def Consumer_func():
                             attack_time = time.time()
 
                             # check signature to classify the anomaly
-                            anomaly_type = nl.signature_analysis(current_data[-1:], raw_mean, raw_std) # previous version was analysis_batch
+                            anomaly_type = nl.signature_analysis(current_data[-1:], raw_mean, raw_std)
                         
-                            log_message = f"[{timestamp}] Anomaly: {anomaly_type} started! | Acceleration Spike: {acceleration:.4f}\n"
+                            log_message = f"[{timestamp}] Anomaly: {anomaly_type} started! | Vel: {velocity:.4f}, Acc: {acceleration:.4f}\n"
                         
                             # log alert to file
                             with open("ids_alerts.log", "a", encoding="utf-8") as log_file:
                                 log_file.write(log_message)
                             
-                            print(f"\n Attack Started | Type: {anomaly_type} | Time: {end_time:.8f} seconds")
+                            print(f"\n [!!!] Attack Started | Type: {anomaly_type} | Time: {end_time:.8f} seconds")
                         
                             # clear memory to prevent alert flooding
                             residual_memory.clear()
                         
                         else:
                             end_time = time.time() - start_time
-                            print(f" Kinematics are stable | Everything is normal | Time: {end_time:.8f} seconds")
+                            print(f" Kinematics stable (Vel: {velocity:.4f}, Acc: {acceleration:.4f}) | Time: {end_time:.8f} s")
                 
                     else:
-                        # wait for memory to fill 3 steps
-                        print(f" Warming up kinematic memory... ({len(residual_memory)}/3 steps)")
+                        # wait for memory to fill 
+                        print(f" Warming up kinematic memory... ({len(residual_memory)}/2 steps for Vel, 3 for Acc)")
 
                 else:
-                    # under_attacl -> True
+                    # under_attack -> True
                     # evaluate current traffic using signature analysis
                     current_status = nl.signature_analysis(current_data[-1:], raw_mean, raw_std)
                     
                     if current_status == "Malicious Attack (Potential Flood)":
                         # attack is sustaining
                         timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
-                        log_msg_ongoing = f"[{timestamp}]  Attacl Ongoing: {current_status} is still active...\n"
+                        log_msg_ongoing = f"[{timestamp}]  Attack Ongoing: {current_status} is still active...\n"
 
                         with open("ids_alerts.log", "a", encoding="utf-8") as log_file:
                             log_file.write(log_msg_ongoing)

@@ -284,20 +284,30 @@ def signature_analysis(analysis_batch,raw_mean,raw_std):
 
 #-------------------------------------------------------------------------------------------------
 
+
 #function for kinematic analysis
 def compute_kinematic(residual_memory):
     """
-        compute 1st and 2nd derivatives on residual
-        arguments: list with 3 last residuals [R(t-2),R(t-1),R(t)]
-        returns: acceleration -> 2nd derivative of residual
+        compute 1st (velocity) and 2nd (acceleration) derivatives on residual
+        arguments: list with 2 or 3 last residuals
+        returns: velocity, acceleration
     """
 
-    if len(residual_memory) < 3:
-        return 0.0
+    # less than 2 samples, cannot compute velocity
+    if len(residual_memory) < 2:
+        return 0.0, 0.0
     
+    # exactly 2 samples, compute only velocity (acceleration is 0)
+    if len(residual_memory) == 2:
+        R_t1 = residual_memory[0] #(t-1)
+        R_t = residual_memory[1]  #(t)
+        velocity = R_t - R_t1
+        return velocity, 0.0
+
+    # exactly 3 samples, compute both
     R_t2 = residual_memory[0] #(t-2)
     R_t1 = residual_memory[1] #(t-1)
-    R_t = residual_memory[2] #(t)
+    R_t = residual_memory[2]  #(t)
 
     V_old = R_t1 - R_t2
     V_new = R_t - R_t1
@@ -305,7 +315,7 @@ def compute_kinematic(residual_memory):
     # 2nd derivative -> R(t) - 2R(t-1) + R(t-2)
     acceleration = V_new - V_old
 
-    return acceleration
+    return V_new, acceleration
 
 
 
