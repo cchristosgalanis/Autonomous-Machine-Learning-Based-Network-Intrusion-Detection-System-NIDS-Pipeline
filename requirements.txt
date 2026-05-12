@@ -7,3 +7,4 @@ joblib
 scapy
 pcapy-ng
 confluent-kafka
+dpkt
