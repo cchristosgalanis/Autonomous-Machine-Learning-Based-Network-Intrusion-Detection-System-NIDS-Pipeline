@@ -37,8 +37,11 @@ def slowloris(iat_mean,iat_std, mean_threshold = 3.0, std_threshold = 0.5):
     """
         check on application layer
     """
+    #adding this check in order to avoid false positives when there is no traffic at all (iat_mean and iat_std are 0)
+    if iat_std <= 0.0001:
+        return False
 
-    if iat_mean > mean_threshold and iat_std > std_threshold:
+    if iat_mean > mean_threshold and iat_std < std_threshold:
         return True
     return False
 

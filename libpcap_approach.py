@@ -14,8 +14,12 @@ def libpcap_capture(capture_duration, interface, flow_states):
 
     start_time = time.time()
 
-    # dictionary to hold metrics per source ip
+    # dictionary to hold stealth metrics per source ip
     ip_metrics = {}
+    
+    # global counters for volumetric features
+    global_total_packets = 0
+    global_total_bytes = 0
 
     while (time.time() - start_time) < capture_duration:
         try:
@@ -24,30 +28,30 @@ def libpcap_capture(capture_duration, interface, flow_states):
             if not data:
                 continue
             
-            # decode for stealth attack
+            # decode frame
             eth = dpkt.ethernet.Ethernet(data)
 
             if isinstance(eth.data, dpkt.ip.IP):
                 ip = eth.data
+                
+                # update global volumetric counters
+                global_total_packets += 1
+                global_total_bytes += len(data)
+                
                 src_ip = socket.inet_ntoa(ip.src)
 
+                # analyze TCP packets for stealth metrics
                 if isinstance(ip.data, dpkt.tcp.TCP):
                     tcp = ip.data
 
                     # initialize ip metrics if not present
                     if src_ip not in ip_metrics:
                         ip_metrics[src_ip] = {
-                            'total_packets': 0,
-                            'total_bytes': 0,
                             'unique_dst_port': set(),
                             'syn_count': 0,
                             'ack_count': 0,
                             'curr_window_iats': []
                         }
-
-                    # volumetric variables per ip
-                    ip_metrics[src_ip]['total_packets'] += 1
-                    ip_metrics[src_ip]['total_bytes'] += len(data)
 
                     # stealth variables per ip
                     ip_metrics[src_ip]['unique_dst_port'].add(tcp.dport)
@@ -57,7 +61,7 @@ def libpcap_capture(capture_duration, interface, flow_states):
                     if tcp.flags & dpkt.tcp.TH_ACK:
                         ip_metrics[src_ip]['ack_count'] += 1
 
-                    # create a key for a set
+                    # create a key for stateful tracking
                     flow_key = (ip.src, tcp.sport, ip.dst, tcp.dport)
                     packet_time = time.time()
 
@@ -67,29 +71,39 @@ def libpcap_capture(capture_duration, interface, flow_states):
 
                     flow_states[flow_key] = packet_time
 
-
         except Exception:
             continue
 
-# ----- compute metrics -------
+    # avoid stale flow states (older than 60 seconds) to prevent memory bloat
+    current_time = time.time()
+    for key in list(flow_states.keys()):
+        if current_time - flow_states[key] > 60.0:
+            del flow_states[key]
+
+    # ----- compute metrics -------
     
     flow_data = []
 
+    # compute global volumetric features (same for all IPs in this window)
+    global_flow_byts_s = global_total_bytes / capture_duration
+    global_flow_pkts_s = global_total_packets / capture_duration
+    global_pkt_len_mean = (global_total_bytes / global_total_packets) if global_total_packets > 0 else 0
+
     # compute metrics for each active ip
     for ip_address, metrics in ip_metrics.items():
-        tot_pkts = metrics['total_packets']
-        tot_bytes = metrics['total_bytes']
-
-        # volumetric metrics
-        flow_byts_s = tot_bytes / capture_duration
-        flow_pkts_s = tot_pkts / capture_duration
-        pkt_len_mean = (tot_bytes / tot_pkts) if tot_pkts > 0 else 0
-
+        
         # stealth metrics
         port_scan_intensity = len(metrics['unique_dst_port'])
         syn = metrics['syn_count']
         ack = metrics['ack_count']
-        syn_ack_ratio = syn / ack if ack > 0 else float(syn)
+        
+        # avoid division by zero and set a cap for pure SYN floods
+        if ack > 0:
+            syn_ack_ratio = syn / ack
+        elif syn > 0:
+            syn_ack_ratio = 999.0  # temporary cap for pure SYN floods | can be tuned or set to float('inf')
+        else:
+            syn_ack_ratio = 0.0
 
         # iat mean and iat std
         iats = metrics['curr_window_iats']
@@ -99,9 +113,9 @@ def libpcap_capture(capture_duration, interface, flow_states):
         # add to flow data list
         flow_data.append({
             'Source_IP': ip_address,
-            'flow_byts_s': flow_byts_s,
-            'flow_pkts_s': flow_pkts_s,
-            'pkt_len_mean': pkt_len_mean,
+            'flow_byts_s': global_flow_byts_s,   # getting the global bytes per second for this window  
+            'flow_pkts_s': global_flow_pkts_s,   # getting the global packets per second for this window  
+            'pkt_len_mean': global_pkt_len_mean, # getting the global mean packet length for this window  
             'unique_ports': port_scan_intensity,
             'syn_ack_ratio': float(syn_ack_ratio),
             'iat_mean': iat_mean,

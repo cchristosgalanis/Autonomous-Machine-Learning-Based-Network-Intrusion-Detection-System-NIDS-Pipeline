@@ -31,7 +31,10 @@ def Consumer_func():
     # --- parameters and buffers initialization ---
     w_train = 20 
     kinematic_threshold = 0.8 # or 1.0
-    velocity_threshold = 0.5  # threshold for 1st derivative 
+    velocity_threshold = 0.65  # threshold for 1st derivative 
+    
+    # minimum packets threshold to consider an anomaly valid (to avoid false positives from kinematic spikes during very low traffic periods)
+    min_packets_threshold = 50 #can be tuned based on training data or set to 0 to disable this check
     
     # sliding window buffer 
     buffer = deque(maxlen=150) 
@@ -105,7 +108,7 @@ def Consumer_func():
                 residual_memory.append(current_residual)
                 
                 if not under_attack:
-                    # benign (looking for velocity or acceleration spike)
+                    # benign (checking for velocity or acceleration spike)
                     
                     if len(residual_memory) >= 2:
                         start_time = time.time()
@@ -113,8 +116,12 @@ def Consumer_func():
                         # calculate 1st (velocity) and 2nd (acceleration) derivatives
                         velocity, acceleration = nl.compute_kinematic(list(residual_memory))
 
-                        # decision based on velocity OR acceleration threshold
-                        if abs(velocity) > velocity_threshold or (len(residual_memory) == 3 and abs(acceleration) > kinematic_threshold):
+                        #get current packet count for the last second (assuming T_vol is packets per second)
+                        current_packets = current_data[-1][1]
+
+                        kinematic_spike = abs(velocity) > velocity_threshold or (len(residual_memory) == 3 and abs(acceleration) > kinematic_threshold)
+
+                        if kinematic_spike and (current_packets > min_packets_threshold):
                             end_time = time.time() - start_time
                             timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
                             
