@@ -4,6 +4,7 @@ import numpy as np
 import time
 from collections import deque
 import non_linear as nl
+import os  
 
 def Consumer_func():
 
@@ -45,7 +46,7 @@ def Consumer_func():
 
     # --- kafka consumer conf ---
     conf = {
-        'bootstrap.servers': 'localhost:9092',
+        'bootstrap.servers': os.getenv('KAFKA_BROKER', 'localhost:9092'),
         'group.id': 'ml-analyzer-group-1',
         'auto.offset.reset': 'latest',
         'enable.auto.commit': True
@@ -134,8 +135,8 @@ def Consumer_func():
                         
                             log_message = f"[{timestamp}] Anomaly: {anomaly_type} started! | Vel: {velocity:.4f}, Acc: {acceleration:.4f}\n"
                         
-                            # log alert to file
-                            with open("ids_alerts.log", "a", encoding="utf-8") as log_file:
+                            os.makedirs("logs", exist_ok=True)
+                            with open("logs/ids_alerts.log", "a", encoding="utf-8") as log_file:
                                 log_file.write(log_message)
                             
                             print(f"\n [!!!] Attack Started | Type: {anomaly_type} | Time: {end_time:.8f} seconds")
@@ -161,7 +162,8 @@ def Consumer_func():
                         timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
                         log_msg_ongoing = f"[{timestamp}]  Attack Ongoing: {current_status} is still active...\n"
 
-                        with open("ids_alerts.log", "a", encoding="utf-8") as log_file:
+                        os.makedirs("logs", exist_ok=True)
+                        with open("logs/ids_alerts.log", "a", encoding="utf-8") as log_file:
                             log_file.write(log_msg_ongoing)
                             
                         print(f"[{timestamp}] ... attack is still ongoing ...")

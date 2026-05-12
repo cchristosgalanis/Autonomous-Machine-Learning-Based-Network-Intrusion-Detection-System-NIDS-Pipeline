@@ -2,6 +2,7 @@ from confluent_kafka import Producer
 import json
 import time 
 import argparse
+import os
 from libpcap_approach import libpcap_capture
 
 def callback(err,msg):
@@ -12,6 +13,8 @@ def callback(err,msg):
         pass
 
 def Producer_func():
+
+    default_iface = os.getenv('DEFAULT_IFACE', 'en0')
 
     parser = argparse.ArgumentParser(description='Kafka Producer for Network Flow Data')
     parser.add_argument('-i','--iface',
@@ -36,7 +39,7 @@ def Producer_func():
         while True:
             #call libpcap function from libpcap_approach file to sniff network
             #check for arguments in function libpcap_capture
-            flow_data = libpcap_capture(capture_duration=1, interface=interface, flow_states=active_flow_states)
+            flow_data = libpcap_capture(capture_duration=2, interface=interface, flow_states=active_flow_states)
 
             if not flow_data.empty:
                 # iterate over all rows (all IPs)

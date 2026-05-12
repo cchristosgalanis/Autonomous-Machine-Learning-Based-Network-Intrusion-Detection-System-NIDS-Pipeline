@@ -1,13 +1,14 @@
 from confluent_kafka import Consumer
 import json
 import time
+import os 
 import stateful_functions as sf
 
 
 def Consumer_Stealth_func():
     # --- Kafka configuration ---
     conf = {
-        'bootstrap.servers': 'localhost:9092',
+        'bootstrap.servers': os.getenv('KAFKA_BROKER', 'localhost:9092'),
         'group.id': 'stealth-analyzer-group',
         'auto.offset.reset': 'latest',
         'enable.auto.commit': True
@@ -29,21 +30,20 @@ def Consumer_Stealth_func():
                 print(f"\n Consumer Error: {msg.error()}")
                 continue
 
-
-            #decode JSON file
+            # decode JSON file
             raw_bytes = msg.value()
             flow_data = json.loads(raw_bytes.decode('utf-8'))
 
-            #exctract only stealth features
+            # extract only stealth features
             try:
-                u_ports = int(flow_data.get('U_ports',0))
-                sa_ratio = float(flow_data.get('SA_ratio',0.0))
-                iat_mean = float(flow_data.get('IAT_mean',0.0))
-                iat_std = float(flow_data.get('IAT_std',0.0))
+                u_ports = int(flow_data.get('U_ports', 0))
+                sa_ratio = float(flow_data.get('SA_ratio', 0.0))
+                iat_mean = float(flow_data.get('IAT_mean', 0.0))
+                iat_std = float(flow_data.get('IAT_std', 0.0))
             except KeyError:
                 continue
 
-            result = sf.stealth_signature_analysis(u_ports,sa_ratio,iat_mean,iat_std)
+            result = sf.stealth_signature_analysis(u_ports, sa_ratio, iat_mean, iat_std)
 
             timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
 
@@ -51,8 +51,9 @@ def Consumer_Stealth_func():
                 if curr_attack_state != result:
                     curr_attack_state = result
 
+                    os.makedirs("logs", exist_ok=True)
                     log_msg = f"[{timestamp}] Stealth Anomaly: {result} Started!\n"
-                    with open("ids_alerts.log", "a", encoding="utf-8") as log_file:
+                    with open("logs/ids_alerts.log", "a", encoding="utf-8") as log_file:
                         log_file.write(log_msg)
 
                     print(f"\n [!!!] ATTACK DETECTED: {result} | Ports: {u_ports}, S/A: {sa_ratio:.2f}, IAT: {iat_mean:.2f}s \n")

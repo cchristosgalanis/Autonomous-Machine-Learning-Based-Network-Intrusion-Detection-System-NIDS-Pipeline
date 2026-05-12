@@ -1,0 +1,5 @@
+pcapy-ng
+dpkt
+confluent-kafka
+pandas
+numpy

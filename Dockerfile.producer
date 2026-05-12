@@ -1,0 +1,21 @@
+FROM python:3.10-slim
+
+# install necessary system dependencies for packet capturing
+RUN apt-get update && apt-get install -y \
+    libpcap-dev \
+    gcc \
+    g++ \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# copy and install Python dependencies
+COPY requirements-producer.txt .
+RUN pip install --no-cache-dir -r requirements-producer.txt
+
+# copy the producer script and any necessary modules
+COPY Producer_kafka.py .
+COPY libpcap_approach.py .
+
+# run the producer script
+CMD ["python3", "Producer_kafka.py"]

@@ -1,0 +1,21 @@
+FROM python:3.10-slim
+
+WORKDIR /app
+
+# install necessary system dependencies for libpcap
+COPY requirements-consumer.txt .
+RUN pip install --no-cache-dir -r requirements-consumer.txt
+
+# copy the pre-trained models and metrics
+COPY linear_regression_feat_exp.pkl .
+COPY RobustScaler_feat_exp.pkl .
+COPY train_metrics_feature_expansion.npz .
+
+# copy the consumer scripts and the non-linear approach modules
+COPY non_linear.py .
+COPY stateful_functions.py .
+COPY Consumer_Vol_kafka.py .
+COPY Consumer_St_kafka.py .
+
+# create logs directory for storing alerts
+RUN mkdir -p /app/logs
