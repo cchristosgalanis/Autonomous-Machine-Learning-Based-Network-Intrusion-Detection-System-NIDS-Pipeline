@@ -5,6 +5,7 @@ import time
 from collections import deque
 import non_linear as nl
 import os  
+import csv # Προσθήκη για καταγραφή στο CSV
 
 def Consumer_func():
 
@@ -63,6 +64,17 @@ def Consumer_func():
     print(f"\n Analyzer connected to '{topic_name}'. Waiting for data ...\n")
     print("\n Linear Regression Model & Kinematic Analyzer initialized \n")
 
+    # --- ΠΡΟΣΘΗΚΗ: Αρχικοποίηση αρχείου CSV για το γράφημα ---
+    csv_file_path = "logs/residual_metrics.csv"
+    os.makedirs("logs", exist_ok=True)
+    
+    # Αν το αρχείο δεν υπάρχει, το φτιάχνουμε και βάζουμε την πρώτη γραμμή (headers)
+    if not os.path.exists(csv_file_path):
+        with open(csv_file_path, mode='w', newline='', encoding='utf-8') as f:
+            writer = csv.writer(f)
+            writer.writerow(["Timestamp", "Residual", "Velocity", "Acceleration", "Is_Attack"])
+    # ---------------------------------------------------------
+
 #-------------------------------------------------------------------------------------------------
 
     try:
@@ -108,6 +120,10 @@ def Consumer_func():
                 current_residual = float(np.mean(entropy_res_array))
                 residual_memory.append(current_residual)
                 
+                # Μεταβλητές για την καταγραφή στο CSV (default τιμές αν δεν έχουμε ακόμα μνήμη)
+                log_velocity = 0.0
+                log_acceleration = 0.0
+
                 if not under_attack:
                     # benign (checking for velocity or acceleration spike)
                     
@@ -116,6 +132,9 @@ def Consumer_func():
                     
                         # calculate 1st (velocity) and 2nd (acceleration) derivatives
                         velocity, acceleration = nl.compute_kinematic(list(residual_memory))
+                        
+                        log_velocity = velocity
+                        log_acceleration = acceleration
 
                         #get current packet count for the last second (assuming T_vol is packets per second)
                         current_packets = current_data[-1][1]
@@ -124,7 +143,7 @@ def Consumer_func():
 
                         if kinematic_spike and (current_packets > min_packets_threshold):
                             end_time = time.time() - start_time
-                            timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
+                            timestamp_str = time.strftime("%Y-%m-%d %H:%M:%S")
                             
                             # update state
                             under_attack = True
@@ -133,9 +152,8 @@ def Consumer_func():
                             # check signature to classify the anomaly
                             anomaly_type = nl.signature_analysis(current_data[-1:], raw_mean, raw_std)
                         
-                            log_message = f"[{timestamp}] Anomaly: {anomaly_type} started! | Vel: {velocity:.4f}, Acc: {acceleration:.4f}\n"
+                            log_message = f"[{timestamp_str}] Anomaly: {anomaly_type} started! | Vel: {velocity:.4f}, Acc: {acceleration:.4f}\n"
                         
-                            os.makedirs("logs", exist_ok=True)
                             with open("logs/ids_alerts.log", "a", encoding="utf-8") as log_file:
                                 log_file.write(log_message)
                             
@@ -159,14 +177,13 @@ def Consumer_func():
                     
                     if current_status == "Malicious Attack (Potential Flood)":
                         # attack is sustaining
-                        timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
-                        log_msg_ongoing = f"[{timestamp}]  Attack Ongoing: {current_status} is still active...\n"
+                        timestamp_str = time.strftime("%Y-%m-%d %H:%M:%S")
+                        log_msg_ongoing = f"[{timestamp_str}]  Attack Ongoing: {current_status} is still active...\n"
 
-                        os.makedirs("logs", exist_ok=True)
                         with open("logs/ids_alerts.log", "a", encoding="utf-8") as log_file:
                             log_file.write(log_msg_ongoing)
                             
-                        print(f"[{timestamp}] ... attack is still ongoing ...")
+                        print(f"[{timestamp_str}] ... attack is still ongoing ...")
 
                     else:
                         # traffic normalized
@@ -177,6 +194,16 @@ def Consumer_func():
                         
                         # clear memory to avoid false kinematics from the sudden drop
                         residual_memory.clear()
+
+                # --- ΠΡΟΣΘΗΚΗ: ΣΥΝΕΧΗΣ ΚΑΤΑΓΡΑΦΗ ΔΕΔΟΜΕΝΩΝ ΣΤΟ CSV ΓΙΑ ΤΟ ΓΡΑΦΗΜΑ ---
+                # Καταγράφεται στο τέλος κάθε batch, ανεξάρτητα από την κατάσταση!
+                current_plot_time = time.time()
+                current_alert_status = 1 if under_attack else 0
+                
+                with open(csv_file_path, mode='a', newline='', encoding='utf-8') as f:
+                    writer = csv.writer(f)
+                    writer.writerow([current_plot_time, current_residual, log_velocity, log_acceleration, current_alert_status])
+                # ----------------------------------------------------------------------
 
 #----------------------------------------------------------------------------------------------------------------------------
 
