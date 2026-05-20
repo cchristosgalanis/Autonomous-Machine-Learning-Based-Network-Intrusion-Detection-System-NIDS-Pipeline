@@ -9,13 +9,11 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
-# copy and install Python dependencies
-COPY requirements-producer.txt .
+# Παίρνουμε τα requirements από τον φάκελο config/
+COPY config/requirements-producer.txt ./requirements-producer.txt
 RUN pip install --no-cache-dir -r requirements-producer.txt
 
-# copy the producer script and any necessary modules
-COPY Producer_kafka.py .
-COPY libpcap_approach.py .
+# Αντιγράφουμε ΟΛΟ τον κώδικα από τον φάκελο src/ χύμα μέσα στο /app του container
+COPY src/ .
 
-# run the producer script
 CMD ["python3", "Producer_kafka.py"]
