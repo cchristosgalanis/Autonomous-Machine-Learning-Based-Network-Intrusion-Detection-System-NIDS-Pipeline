@@ -3,7 +3,6 @@ __pycache__/
 *$py.class
 
 # Directories to ignore
-cicflowmeter/
 Diagrams/
 
 # Datasets (Large CSV files)
@@ -15,7 +14,6 @@ Diagrams/
 # OS generated files
 .DS_Store
 
-*.txt
 
 
 
