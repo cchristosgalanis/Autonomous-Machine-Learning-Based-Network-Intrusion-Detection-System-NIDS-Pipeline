@@ -78,3 +78,18 @@ services:
       kafka:
         condition: service_healthy
     restart: unless-stopped
+
+  consumer-spatial:
+    build:
+      context: .
+      dockerfile: Dockerfile.consumer
+    container_name: ids-consumer-spatial
+    environment:
+      - KAFKA_BROKER=kafka:29092
+    volumes:
+      - ./logs:/app/logs
+    command: ["python3", "Consumer_Spatial.py"]
+    depends_on:
+      kafka:
+        condition: service_healthy
+    restart: unless-stopped

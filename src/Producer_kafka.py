@@ -15,19 +15,20 @@ def callback(err,msg):
 def Producer_func():
 
     default_iface = os.getenv('DEFAULT_IFACE', 'en0')
+    broker = os.getenv('KAFKA_BROKER', 'localhost:9092')
 
     parser = argparse.ArgumentParser(description='Kafka Producer for Network Flow Data')
     parser.add_argument('-i','--iface',
                         type=str,
                         default='en0',
                         help='Network interface to capture traffic from (default: en0)'
-                )
+                        )
 
     args = parser.parse_args()
     interface = args.iface
 
     conf = {
-        'bootstrap.servers':'localhost:9092'
+        'bootstrap.servers': broker
     }
 
     producer = Producer(conf)
@@ -69,7 +70,7 @@ def Producer_func():
                 producer.produce(topic=spatial_topic, value=spatial_bytes, callback=callback)
 
             producer.poll(0)
-            
+
     except KeyboardInterrupt:
         print("\n Stopping Sniffer ... \n")
 
