@@ -42,8 +42,9 @@ services:
     network_mode: "host"   
     privileged: true       
     environment:
-      - INTERFACE=eth0     
-    command: ["python3", "Producer_kafka.py", "-i", "eth0"]
+      - INTERFACE=${INTERFACE}     
+      - PYTHONUNBUFFERED=1
+    command: ["python3", "Producer_kafka.py", "-i", "${INTERFACE}"]
     depends_on:
       kafka:
         condition: service_healthy
@@ -56,6 +57,7 @@ services:
     container_name: ids-consumer-volumetric
     environment:
       - KAFKA_BROKER=kafka:29092
+      - PYTHONUNBUFFERED=1
     volumes:
       - ./logs:/app/logs   
     command: ["python3", "Consumer_Vol_kafka.py"]
@@ -71,6 +73,7 @@ services:
     container_name: ids-consumer-stealth
     environment:
       - KAFKA_BROKER=kafka:29092
+      - PYTHONUNBUFFERED=1
     volumes:
       - ./logs:/app/logs
     command: ["python3", "Consumer_St_kafka.py"]
@@ -86,6 +89,7 @@ services:
     container_name: ids-consumer-spatial
     environment:
       - KAFKA_BROKER=kafka:29092
+      - PYTHONUNBUFFERED=1
     volumes:
       - ./logs:/app/logs
     command: ["python3", "Consumer_Spatial.py"]

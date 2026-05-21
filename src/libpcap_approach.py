@@ -34,6 +34,9 @@ def libpcap_capture(capture_duration, interface, flow_states,target_port=80):
     global_total_packets = 0
     global_total_bytes = 0
 
+    # list for raw DNS queries in this window (for potential future use in spatial correlation)
+    dns_queries = []
+
     while (time.time() - start_time) < capture_duration:
         try:
             # Capture packet
@@ -90,6 +93,28 @@ def libpcap_capture(capture_duration, interface, flow_states,target_port=80):
                         ip_metrics[src_ip]['curr_window_iats'].append(iat)
 
                     flow_states[flow_key] = packet_time
+                
+                # capture DNS queries for potential future use in spatial correlation
+                elif isinstance(ip.data, dpkt.udp.UDP):
+                    udp = ip.data
+                    
+                    #check if destination port is 53 (DNS)
+                    if udp.dport == 53:
+                        try:
+                            #parse DNS payload
+                            dns = dpkt.dns.DNS(udp.data)
+
+                            # if query (qr==0) AND questions present
+                            if dns.qr == 0 and len(dns.qd) > 0:
+                                qname = dns.qd[0].name # raw domain name from DNS query
+
+                                dns_queries.append({
+                                    "timestamp": time.time(),
+                                    "source_ip": src_ip,
+                                    "domain": qname
+                                })
+                        except Exception:
+                            pass
 
         except Exception:
             continue
@@ -152,4 +177,4 @@ def libpcap_capture(capture_duration, interface, flow_states,target_port=80):
     }
 
     # return a dataframe
-    return pd.DataFrame(flow_data), spatial_payload
+    return pd.DataFrame(flow_data), spatial_payload, dns_queries

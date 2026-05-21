@@ -1,47 +1,61 @@
 import numpy as np
 import pandas as pd 
 import joblib
+from collections import Counter
 
 #-------------------------------------------------------------------------------------------------
-
 
 #Shannon entropy approach
-def shannon_entropy(array,window_size):
-    """
-        argumentets: array -> array of CICFlowmeter output
-                    window_size -> windowing (int number)
+def shannon_entropy(domain_name):
+    """"
+        compute Shannon Entropy of a string (domain name)
+        arguments: domain_name (string)
+        returns: shannon entropy 
+    """  
+
+    if not domain_name:
+        return 0.0
     
-    """
-    #checking for window size
-    if window_size < 2:
-        window_size = 1000;
+    # remove .com and generally everything after the first dot to focus on the main domain
+    core_domain = domain_name.split('.')[0] if '.' in domain_name else domain_name
 
-    number_samples = int(np.floor(len(array)/window_size))
-    entropy_shannon = np.zeros(number_samples)
+    length = len(core_domain)
+    if length == 0:
+        return 0.0
+    
+    #counter to compute instantaneous probability of each character in the domain name
+    character_freq = Counter(core_domain)
 
-    #because python enumarate arrays from 0
-    for i in range(number_samples):
-        #definition of the start and end boundaries
-        start_idx = i * window_size;
-        end_idx = start_idx + window_size;
+    entropy = 0.0
+    
+    for count in character_freq.values():
+        p_i = count / length
+        entropy -= (np.pi) * np.log2((np.pi))
 
-        #calculating entropies
-        temp_idx = array[start_idx : end_idx]
-
-        temp = np.histogram(temp_idx,density=False,bins = 2 * int(np.ceil(window_size**(2/3)))) #using type for bins: k=2(window_size)^(3/2)
-        count = temp[0]
-        temp = count / np.sum(count)
-
-        temp = temp[temp > 0] #to keep values that are not 0, to avoid inf values
-
-        #shannont entropy approach
-        entropy_shannon[i] = -np.sum(temp * np.log2(temp))
-
-    #return array
-    return entropy_shannon    
+    return entropy
 
 #-------------------------------------------------------------------------------------------------
 
+#function to compute shannon entropy and get a result for domain names
+def dns_entropy_check(domain_name, entropy_thresh=2.5):
+    """"
+        control function -> check entropies for each domain in order to be able to detect
+        DGA domains or potential C2 communication attempts based on high entropy in domain names.
+    """
+
+    entropy = shannon_entropy(domain_name)
+    malicious = entropy > entropy_thresh
+
+    result = {
+        "analyzed_domain": domain_name,
+        "entropy": entropy,
+        "is_DGA": malicious,
+        "threshold": entropy_thresh
+    }
+
+    return result
+
+#-------------------------------------------------------------------------------------------------
 
 #Renyi entropy approach
 def renyi_entropy(array,window_size,alpha):
@@ -80,7 +94,6 @@ def renyi_entropy(array,window_size,alpha):
     return entropy_renyi
 
 #-------------------------------------------------------------------------------------------------
-
 
 #statistical features beased on entropy of network
 def mean_val(array):
@@ -317,6 +330,40 @@ def compute_kinematic(residual_memory):
 
     return V_new, acceleration
 
+
+#-------------------------------------------------------------------------------------------------
+
+#function for spatial correlation analysis using MinHash signatures
+def spatial_jaccard(curr_sig, prev_sig,k,threshold=0.70):
+    """"
+        compute Jaccard similarity between current and previous MinHash signatures
+        arguments: curr_sig -> current MinHash signature
+                    prev_sig -> previous MinHash signature
+                    k -> size of MinHash signature
+        returns: Jaccard similarity score and boolean indicating if similar (above threshold)
+    """
+
+    if np.all(curr_sig == -1) or np.all(prev_sig == -1):
+        return {
+            "is_botnet": False,
+            "jaccard_score": 0.0,
+            "matches": 0,
+            "status": "idle"
+        }
+    
+    # vectorized Jaccard similarity calculation
+    matches = np.sum(curr_sig == prev_sig)
+    jaccard_score = matches / k
+
+    # decision based on threshold
+    is_botnet = jaccard_score >= threshold
+
+    return {
+        "is_botnet": bool(is_botnet),
+        "jaccard_score": float(jaccard_score),
+        "matches": int(matches),
+        "status": "potentially malicious" if is_botnet else "benign"
+    }
 
 
 

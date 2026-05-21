@@ -36,13 +36,14 @@ def Producer_func():
     # initialize 2-different topics
     topic_name = 'live-network-flows'
     spatial_topic = 'spatial-minhash-signatures'
+    dns_topic = 'dns-queries'
     active_flow_states = {}
 
     try:
         while True:
             #call libpcap function from libpcap_approach file to sniff network
             #check for arguments in function libpcap_capture
-            flow_data, spatial_payload = libpcap_capture(capture_duration=2, interface=interface, flow_states=active_flow_states)
+            flow_data, spatial_payload, dns_queries = libpcap_capture(capture_duration=2, interface=interface, flow_states=active_flow_states)
 
             if not flow_data.empty:
                 # iterate over all rows (all IPs)
@@ -68,6 +69,11 @@ def Producer_func():
                 spatial_json = json.dumps(spatial_payload)
                 spatial_bytes = spatial_json.encode('utf-8')
                 producer.produce(topic=spatial_topic, value=spatial_bytes, callback=callback)
+            
+            if dns_queries and len(dns_queries) > 0:
+                dns_json = json.dumps(dns_queries)
+                dns_bytes = dns_json.encode('utf-8')
+                producer.produce(topic=dns_topic, value=dns_bytes, callback=callback)
 
             producer.poll(0)
 
