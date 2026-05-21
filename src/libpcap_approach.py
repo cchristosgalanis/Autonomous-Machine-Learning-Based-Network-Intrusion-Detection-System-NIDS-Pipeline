@@ -4,8 +4,9 @@ import time
 import dpkt
 import numpy as np
 import socket
+import struct
 
-def libpcap_capture(capture_duration, interface, flow_states):
+def libpcap_capture(capture_duration, interface, flow_states,target_port=80):
     print(f"\n [Libpcap] Starting time-window capture on {interface}...")
     
     # Open interface: max bytes, promiscuous, timeout
@@ -16,6 +17,18 @@ def libpcap_capture(capture_duration, interface, flow_states):
 
     # dictionary to hold stealth metrics per source ip
     ip_metrics = {}
+
+    # initialize global parameters for minHash features
+    # initialize k for minHash (number of hash functions)
+    k = 128
+    # biggest prime number for hashing (for minHash)
+    prime_number = 4294967311 # because biggest number is for IPv4 is 2^32-1, we take the biggest prime number below that for better hash distribution
+    #initialize random hash functions for minHash
+    np.random.seed(42) # for reproducibility
+    a_coeffs = np.random.randint(1, prime_number, size=k,dtype=np.int64) # k-random coefficients for hash functions
+    b_coeffs = np.random.randint(0, prime_number, size=k,dtype=np.int64) # k-random coefficients for hash functions
+    # initialize signature matrix for minHash (k rows for k hash functions, 1 column for each unique destination port)
+    signature_matrix = np.full(k,np.inf) # initialize with infinity for minHash
     
     # global counters for volumetric features
     global_total_packets = 0
@@ -43,6 +56,13 @@ def libpcap_capture(capture_duration, interface, flow_states):
                 # analyze TCP packets for stealth metrics
                 if isinstance(ip.data, dpkt.tcp.TCP):
                     tcp = ip.data
+
+                    # minHash signature update for this source IP based on destination port (for port scan detection)
+                    if tcp.dport == target_port:
+                        ip_int = struct.unpack("!I", ip.src)[0] # convert source IP to integer for hashing
+
+                        current_hashes = (a_coeffs * ip_int + b_coeffs) % prime_number # compute k hash values for this IP using the random coefficients
+                        signature_matrix = np.minimum(signature_matrix, current_hashes) # update the minHash signature
 
                     # initialize ip metrics if not present
                     if src_ip not in ip_metrics:
@@ -122,5 +142,14 @@ def libpcap_capture(capture_duration, interface, flow_states):
             'iat_std': iat_std
         })
 
+    signature_matrix[np.isinf(signature_matrix)] = -1
+
+    spatial_payload = {
+        "timestamp": time.time(),
+        "target_port": target_port,
+        "k_size": k,
+        "signature": signature_matrix.tolist() # convert numpy array to list for JSON serialization
+    }
+
     # return a dataframe
-    return pd.DataFrame(flow_data)
+    return pd.DataFrame(flow_data), spatial_payload
