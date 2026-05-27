@@ -62,7 +62,14 @@ def compute_features(raw_csv_path, label_value):
 
 if __name__ == "__main__":
     # benign files 
-    benign_files = ["capture.csv", "benign.csv","normal_curl_01.csv","normal_idle_01.csv","normal_ping_01.csv"] 
+    benign_files = [
+            "capture.csv", 
+            "benign.csv",
+            "normal_curl_01.csv",
+            "normal_idle_01.csv",
+            "normal_ping_01.csv"
+    ] 
+    
     
     # attack files
     attack_files = [
