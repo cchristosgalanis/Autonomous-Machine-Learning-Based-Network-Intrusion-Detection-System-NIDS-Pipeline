@@ -4,6 +4,9 @@ __pycache__/
 
 # Directories to ignore
 Diagrams/
+datasets1/
+features/
+
 
 # Datasets (Large CSV files)
 *.csv
@@ -13,6 +16,9 @@ Diagrams/
 
 # OS generated files
 .DS_Store
+
+# png
+*.png
 
 
 

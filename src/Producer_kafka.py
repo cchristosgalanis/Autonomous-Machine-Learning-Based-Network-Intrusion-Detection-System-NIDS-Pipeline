@@ -13,27 +13,19 @@ def callback(err,msg):
         pass
 
 def Producer_func():
-
     default_iface = os.getenv('DEFAULT_IFACE', 'en0')
     broker = os.getenv('KAFKA_BROKER', 'localhost:9092')
 
     parser = argparse.ArgumentParser(description='Kafka Producer for Network Flow Data')
-    parser.add_argument('-i','--iface',
-                        type=str,
-                        default='en0',
-                        help='Network interface to capture traffic from (default: en0)'
-                        )
+    parser.add_argument('-i','--iface', type=str, default='en0',
+                        help='Network interface to capture traffic from (default: en0)')
 
     args = parser.parse_args()
     interface = args.iface
 
-    conf = {
-        'bootstrap.servers': broker
-    }
-
+    conf = {'bootstrap.servers': broker}
     producer = Producer(conf)
 
-    # initialize 2-different topics
     topic_name = 'live-network-flows'
     spatial_topic = 'spatial-minhash-signatures'
     dns_topic = 'dns-queries'
@@ -41,15 +33,13 @@ def Producer_func():
 
     try:
         while True:
-            #call libpcap function from libpcap_approach file to sniff network
-            #check for arguments in function libpcap_capture
             flow_data, spatial_payload, dns_queries = libpcap_capture(capture_duration=2, interface=interface, flow_states=active_flow_states)
 
             if not flow_data.empty:
-                # iterate over all rows (all IPs)
                 for index, row in flow_data.iterrows():
+                    src_ip = str(row['Source_IP'])
                     flow_dict = {
-                        "Source_IP": str(row['Source_IP']),
+                        "Source_IP": src_ip,
                         "T_vol": float(row['flow_byts_s']),
                         "N_req": float(row['flow_pkts_s']),
                         "S_len": float(row['pkt_len_mean']),
@@ -60,15 +50,16 @@ def Producer_func():
                     }
 
                     json_string = json.dumps(flow_dict)
-                    bytes = json_string.encode('utf-8')
+                    bytes_data = json_string.encode('utf-8')
 
-                    #send to Kafka
-                    producer.produce(topic=topic_name, value=bytes, callback=callback)
+                    producer.produce(topic=topic_name, key=src_ip.encode('utf-8'), value=bytes_data, callback=callback)
             
             if spatial_payload and len(spatial_payload.get('signature',[])) > 0:
                 spatial_json = json.dumps(spatial_payload)
                 spatial_bytes = spatial_json.encode('utf-8')
-                producer.produce(topic=spatial_topic, value=spatial_bytes, callback=callback)
+                # Για το spatial, καλό είναι το key να είναι η πόρτα στόχος
+                target_port = str(spatial_payload.get('target_port', '0'))
+                producer.produce(topic=spatial_topic, key=target_port.encode('utf-8'), value=spatial_bytes, callback=callback)
             
             if dns_queries and len(dns_queries) > 0:
                 dns_json = json.dumps(dns_queries)

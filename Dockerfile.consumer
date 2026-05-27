@@ -2,16 +2,18 @@ FROM python:3.10-slim
 
 WORKDIR /app
 
-# Παίρνουμε τα requirements από τον φάκελο config/
+# get the requirements for the consumer from the config/ folder
 COPY config/requirements-consumer.txt ./requirements-consumer.txt
 RUN pip install --no-cache-dir -r requirements-consumer.txt
 
-# Παίρνουμε τα μοντέλα από τον φάκελο models/
+# get the pre-trained models and metrics from the models/ folder
 COPY models/linear_regression_feat_exp.pkl .
 COPY models/RobustScaler_feat_exp.pkl .
 COPY models/train_metrics_feature_expansion.npz .
+COPY models/nids_mlp_model.joblib .
+COPY models/nids_scaler.joblib .
 
-# Αντιγράφουμε ΟΛΟ τον κώδικα από τον φάκελο src/
+# copy code from src/ to /app in the container
 COPY src/ .
 
 # create logs directory for storing alerts
