@@ -9,11 +9,11 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
-# Παίρνουμε τα requirements από τον φάκελο config/
+# get the requirements for the producer from the config/ folder
 COPY config/requirements-producer.txt ./requirements-producer.txt
 RUN pip install --no-cache-dir -r requirements-producer.txt
 
-# Αντιγράφουμε ΟΛΟ τον κώδικα από τον φάκελο src/ χύμα μέσα στο /app του container
+# copy code from src/ to /app in the container
 COPY src/ .
 
 CMD ["python3", "Producer_kafka.py"]

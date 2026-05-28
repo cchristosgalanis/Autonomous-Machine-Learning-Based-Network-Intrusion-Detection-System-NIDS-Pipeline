@@ -104,11 +104,11 @@ services:
       dockerfile: Dockerfile.consumer
     container_name: ids-consumer-mlp
     environment:
+      - HOST_IP=${HOST_IP}
       - KAFKA_BROKER=kafka:29092
       - PYTHONUNBUFFERED=1
     volumes:
       - ./logs:/app/logs
-    # Τρέχουμε το script που περιέχει το νευρωνικό δίκτυο
     command: ["python3", "Consumer_MLP.py"]
     depends_on:
       kafka:

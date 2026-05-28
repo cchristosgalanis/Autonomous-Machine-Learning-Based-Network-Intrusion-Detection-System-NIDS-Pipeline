@@ -4,17 +4,17 @@ import numpy as np
 import time
 import joblib
 import os
+import non_linear as nl
 
 def Consumer_NN_func():
+    HOST_IP = os.getenv('HOST_IP', '127.0.0.1')
+
     print("\n [AI Engine] Loading Neural Network and Scaler...")
     
-    # model και scaler MLP
-    try:
-        model = joblib.load('models/nids_mlp_model.joblib')
-        scaler = joblib.load('models/nids_scaler.joblib')
-        print(" AI Models loaded successfully.")
-    except Exception as e:
-        print(f" [!] Error loading models: {e}")
+    model, scaler = nl.load_nn_model_and_scaler()
+
+    if model is None or scaler is None:
+        print("Error: Model or scaler could not be loaded. Exiting.")
         return
 
     # kafka consumer configuration
@@ -85,7 +85,7 @@ def Consumer_NN_func():
                         # stealth
                         stl = data['stealth']
                         iat = float(np.mean([s['iat_mean'] for s in stl])) if stl else 0.0
-                        sa  = max([s['sa_ratio'] for s in stl]) if stl else 0.0
+                        sa = max([s['sa_ratio'] for s in stl]) if stl else 0.0
                         
                         # spatial (Botnet)
                         spa = data['spatial']
@@ -96,7 +96,7 @@ def Consumer_NN_func():
                         ent = max([d['entropy_shannon'] for d in dns_data]) if dns_data else 0.0
                         
                         # 6D vector
-                        vector = [vel, acc, iat, sa, jac, ent]
+                        vector = [vel, acc, iat, sa, jac, ent] # velocity, acceleration, iat_mean, sa_ratio, jaccard_score, dns_entropy
                         
                         X_batch.append(vector)
                         entities_batch.append(entity)

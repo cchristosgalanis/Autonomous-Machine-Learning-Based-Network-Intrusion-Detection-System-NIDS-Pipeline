@@ -4,6 +4,7 @@ import time
 import argparse
 import os
 from libpcap_approach import libpcap_capture
+import ipaddress
 
 def callback(err,msg):
     if err is not None:
@@ -37,7 +38,16 @@ def Producer_func():
 
             if not flow_data.empty:
                 for index, row in flow_data.iterrows():
-                    src_ip = str(row['Source_IP'])
+                    raw_ip = str(row['Source_IP'])
+                    
+                    # validation to ensure we only process valid IP addresses
+                    try:
+                        ipaddress.ip_address(raw_ip)
+                    except ValueError:
+                        continue
+                    
+                    src_ip = raw_ip
+
                     flow_dict = {
                         "Source_IP": src_ip,
                         "T_vol": float(row['flow_byts_s']),
@@ -56,8 +66,7 @@ def Producer_func():
             
             if spatial_payload and len(spatial_payload.get('signature',[])) > 0:
                 spatial_json = json.dumps(spatial_payload)
-                spatial_bytes = spatial_json.encode('utf-8')
-                # Για το spatial, καλό είναι το key να είναι η πόρτα στόχος
+                spatial_bytes = spatial_json.encode('utf-8')    
                 target_port = str(spatial_payload.get('target_port', '0'))
                 producer.produce(topic=spatial_topic, key=target_port.encode('utf-8'), value=spatial_bytes, callback=callback)
             

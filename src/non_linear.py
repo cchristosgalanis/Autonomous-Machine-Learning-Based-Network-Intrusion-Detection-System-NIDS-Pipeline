@@ -173,7 +173,18 @@ def load_model_and_scaler():
     except Exception as e:
         print(f"Error loading model or scaler: {e}")
         return None, None
+    
+#-------------------------------------------------------------------------------------------------
 
+#function to load neural network model and scaler
+def load_nn_model_and_scaler():
+    try:
+        model = joblib.load('nids_mlp_model.joblib')
+        scaler = joblib.load('nids_scaler.joblib')
+        return model, scaler
+    except Exception as e:
+        print(f"Error loading neural network model or scaler: {e}")
+        return None, None
 
 #-------------------------------------------------------------------------------------------------
 
