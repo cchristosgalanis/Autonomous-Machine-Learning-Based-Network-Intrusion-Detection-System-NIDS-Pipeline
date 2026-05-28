@@ -109,8 +109,38 @@ services:
       - PYTHONUNBUFFERED=1
     volumes:
       - ./logs:/app/logs
+      - ./models:/app/models 
     command: ["python3", "Consumer_MLP.py"]
     depends_on:
       kafka:
         condition: service_healthy
+    restart: unless-stopped
+
+  sanitization-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.consumer
+    container_name: ids-sanitization-service
+    environment:
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./logs:/app/logs      
+      - ./models:/app/models  
+    command: ["python3", "sanitization_service.py"]
+    depends_on:
+      - consumer-mlp
+    restart: unless-stopped
+
+  adaptive-learning:
+    build:
+      context: .
+      dockerfile: Dockerfile.consumer
+    container_name: ids-adaptive-learning
+    environment:
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./models:/app/models  
+    command: ["/bin/sh", "-c", "while true; do sleep 60; python3 adaptive_learning.py; done"]
+    depends_on:
+      - sanitization-service
     restart: unless-stopped

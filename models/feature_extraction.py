@@ -61,6 +61,9 @@ def compute_features(raw_csv_path, label_value):
     return X_np, y_np
 
 if __name__ == "__main__":
+
+    
+
     # benign files 
     benign_files = [
             "capture.csv", 
@@ -111,7 +114,6 @@ if __name__ == "__main__":
         X_final = np.vstack(all_X)
         y_final = np.concatenate(all_y)
 
-        # Δημιουργία φακέλου features και αποθήκευση
         os.makedirs("features", exist_ok=True)
         np.savez_compressed("features/final_features.npz", X=X_final, y=y_final)
         
