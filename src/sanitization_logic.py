@@ -20,8 +20,8 @@ def sanitization_logic(training_candidates_path):
     """
 
     HOST_IP = os.getenv('HOST_IP', '127.0.0.1')
-    T_SAFE = 0.05
-    CONFIDENCE_THRESHOLD = 0.95
+    T_SAFE = 0.15
+    CONFIDENCE_THRESHOLD = 0.85
     
     sanitized_X = []
     sanitized_y = []

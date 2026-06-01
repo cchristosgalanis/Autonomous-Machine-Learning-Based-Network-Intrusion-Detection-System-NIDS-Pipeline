@@ -51,7 +51,11 @@ def Consumer_NN_func():
             if msg is not None and not msg.error():
                 try:
                     payload = json.loads(msg.value().decode('utf-8'))
-                    entity_id = payload.get('source_ip', payload.get('target_port', 'Unknown'))
+                    #change on this line, in order to avoid get port number instead of IP address, since some analyzers (like spatial) don't have IP as key
+                    entity_id = payload.get('source_ip','Unknown')
+                    if entity_id == 'Unknown':
+                        continue
+
                     analyzer = payload.get('analyzer')
                     metrics = payload.get('metrics', {})
 
