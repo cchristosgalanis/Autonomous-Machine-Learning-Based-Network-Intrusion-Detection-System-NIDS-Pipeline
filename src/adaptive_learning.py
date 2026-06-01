@@ -18,7 +18,7 @@ def perform_adaptive_retraining():
     # Ensure model directory exists
     os.makedirs("models/features", exist_ok=True)
 
-    # 1. Load Historical Data
+    # Load Historical Data
     if not os.path.exists(historical_path):
         print(f" [!] Critical Error: Historical data not found at {historical_path}")
         return
@@ -31,7 +31,7 @@ def perform_adaptive_retraining():
     X_combined = X_hist
     y_combined = y_hist
     
-    # 2. Load Adaptive Data (if available)
+    # Load Adaptive Data (if available)
     if os.path.exists(adaptive_path):
         print(f" [+] Loading new adaptive data from {adaptive_path}...")
         adaptive_data = np.load(adaptive_path)
@@ -48,7 +48,25 @@ def perform_adaptive_retraining():
     else:
         print(" [i] Adaptive data not found. Proceeding with historical data only.")
 
-    print(f" [+] Total dataset size for training: {len(X_combined)} samples.")
+    print(f" [+] Total dataset size before balancing: {len(X_combined)} samples.")
+
+    # --- DYNAMIC DATA BALANCING ---
+    idx_benign = np.where(y_combined == 0)[0]
+    idx_attack = np.where(y_combined == 1)[0]
+
+    attacks_to_keep = max(len(idx_benign), 5000)
+    
+    if len(idx_attack) > attacks_to_keep:
+        print(f" [+] Undersampling attacks from {len(idx_attack)} down to {attacks_to_keep} to match benign traffic...")
+        np.random.shuffle(idx_attack)
+        idx_attack = idx_attack[:attacks_to_keep]
+
+    balanced_indices = np.concatenate((idx_benign, idx_attack))
+    X_combined = X_combined[balanced_indices]
+    y_combined = y_combined[balanced_indices]
+    # --------------------------------
+
+    print(f" [+] Total dataset size for training after balancing: {len(X_combined)} samples.")
 
     # 3. Shuffle the combined dataset securely
     print(" [+] Shuffling data to prevent catastrophic forgetting...")

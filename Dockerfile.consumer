@@ -13,6 +13,7 @@ COPY models/train_metrics_feature_expansion.npz .
 COPY models/nids_mlp_model.joblib .
 COPY models/nids_scaler.joblib .
 
+
 # copy code from src/ to /app in the container
 COPY src/ .
 

@@ -52,6 +52,10 @@ def sanitization_logic(training_candidates_path):
                     sanitized_X.append(data["features"])
                     sanitized_y.append(0)
                 
+                elif is_confident_benign: 
+                    sanitized_X.append(data["features"])
+                    sanitized_y.append(0)
+                
                 # if it's a confident attack, keep it as Attack (1)
                 elif is_confident_attack:
                     sanitized_X.append(data["features"])
