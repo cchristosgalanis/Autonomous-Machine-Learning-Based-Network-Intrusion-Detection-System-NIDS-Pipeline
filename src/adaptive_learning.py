@@ -68,16 +68,16 @@ def perform_adaptive_retraining():
 
     print(f" [+] Total dataset size for training after balancing: {len(X_combined)} samples.")
 
-    # 3. Shuffle the combined dataset securely
+    #  Shuffle the combined dataset securely
     print(" [+] Shuffling data to prevent catastrophic forgetting...")
     X_shuffled, y_shuffled = shuffle(X_combined, y_combined, random_state=42)
 
-    # 4. Feature Scaling
+    # Feature Scaling
     print(" [+] Scaling features (StandardScaler)...")
     scaler = StandardScaler()
     X_scaled = scaler.fit_transform(X_shuffled)
 
-    # 5. Train the Neural Network
+    # Train the Neural Network
     print(" [+] Training Neural Network (MLPClassifier)...")
     # You can adjust hyperparameters based on your original non_linear.py logic
     model = MLPClassifier(
@@ -93,12 +93,20 @@ def perform_adaptive_retraining():
     model.fit(X_scaled, y_shuffled)
     print(f" [+] Training completed. Final model score (accuracy): {model.score(X_scaled, y_shuffled):.4f}")
 
-    # 6. Save the updated Model and Scaler
+    # Save the updated Model and Scaler
     print(" [+] Saving updated model and scaler to disk...")
     joblib.dump(model, model_out_path)
     joblib.dump(scaler, scaler_out_path)
     
     print(f" [SUCCESS] Adaptive retraining complete. New weights deployed to {model_dir}/")
+
+    # Delete the temporary batch to free up space and prepare for the next cycle
+    if os.path.exists(adaptive_path):
+        try:
+            os.remove(adaptive_path)
+            print(f" [+] Cleaned up temporary training batch: {adaptive_path}")
+        except Exception as e:
+            print(f" [!] Failed to delete {adaptive_path}: {e}")
 
 if __name__ == "__main__":
     perform_adaptive_retraining()

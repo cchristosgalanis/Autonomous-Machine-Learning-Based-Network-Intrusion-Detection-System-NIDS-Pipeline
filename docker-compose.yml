@@ -144,3 +144,18 @@ services:
     depends_on:
       - sanitization-service
     restart: unless-stopped
+
+  frontend-dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: ids-frontend-dashboard
+    ports:
+      - "8501:8501"
+    environment:
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./logs:/app/logs:ro  # Read-only access to logs
+    depends_on:
+      - consumer-mlp
+    restart: unless-stopped

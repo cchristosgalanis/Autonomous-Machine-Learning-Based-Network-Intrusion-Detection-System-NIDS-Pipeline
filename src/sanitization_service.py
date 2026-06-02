@@ -23,14 +23,23 @@ def run_sanitization_daemon():
                 print("\n Master log not found yet. Skipping cycle.")
                 continue
 
-            # sanitize
+            # sanitize the current batch
             X_clean, y_clean = sanitization_logic(master_log_path)
 
+            # empty the log file immediately after reading to prevent memory/disk bloat
+            try:
+                open(master_log_path, 'w').close()
+                print(f" [+] Truncated master log: {master_log_path} (Disk space recovered)")
+            except Exception as e:
+                print(f" [!] Failed to truncate {master_log_path}: {e}")
+            # ---------------------------
+
+            #  save the sanitized batch for the adaptive_learning process
             if X_clean is not None and len(X_clean) > 0:
                 np.savez_compressed(output_file, X=X_clean, y=y_clean)
                 print(f" [SUCCESS] Sanitization complete. {len(X_clean)} samples ready in {output_file}.")
             else:
-                print(" [!] Sanitization skipped or no confident data available yet.")
+                print(" [i] Sanitization skipped or no confident data available in this cycle.")
 
     except KeyboardInterrupt:
         print("\n [Sanitization Service] Shutting down... \n")
