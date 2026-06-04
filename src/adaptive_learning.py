@@ -15,15 +15,15 @@ def perform_adaptive_retraining():
     model_out_path = os.path.join(model_dir, "mlp_model.joblib")
     scaler_out_path = os.path.join(model_dir, "scaler.joblib")
     
-    # Ensure model directory exists
+    # ensure model directory exists
     os.makedirs("models/features", exist_ok=True)
 
     # Load Historical Data
     if not os.path.exists(historical_path):
-        print(f" [!] Critical Error: Historical data not found at {historical_path}")
+        print(f"\n Critical Error: Historical data not found at {historical_path} \n")
         return
         
-    print(f" [+] Loading historical data from {historical_path}...")
+    print(f"\n Loading historical data from {historical_path}... \n")
     historical_data = np.load(historical_path)
     X_hist = historical_data['X']
     y_hist = historical_data['y']
@@ -42,15 +42,15 @@ def perform_adaptive_retraining():
             # Fusion
             X_combined = np.vstack((X_hist, X_adapt))
             y_combined = np.concatenate((y_hist, y_adapt))
-            print(f" [+] Data fusion complete. Added {len(X_adapt)} new samples.")
+            print(f"\n Data fusion complete. Added {len(X_adapt)} new samples \n")
         else:
-            print(" [i] Adaptive dataset is empty. Proceeding with historical data only.")
+            print("\n Adaptive dataset is empty. Proceeding with historical data only \n")
     else:
-        print(" [i] Adaptive data not found. Proceeding with historical data only.")
+        print("\n Adaptive data not found. Proceeding with historical data only \n")
 
-    print(f" [+] Total dataset size before balancing: {len(X_combined)} samples.")
+    print(f"\n Total dataset size before balancing: {len(X_combined)} samples \n")
 
-    # --- DYNAMIC DATA BALANCING ---
+    # --- dynamic data balancing ---
     idx_benign = np.where(y_combined == 0)[0]
     idx_attack = np.where(y_combined == 1)[0]
 
@@ -64,22 +64,24 @@ def perform_adaptive_retraining():
     balanced_indices = np.concatenate((idx_benign, idx_attack))
     X_combined = X_combined[balanced_indices]
     y_combined = y_combined[balanced_indices]
+
+    
     # --------------------------------
 
-    print(f" [+] Total dataset size for training after balancing: {len(X_combined)} samples.")
+    print(f"\n Total dataset size for training after balancing: {len(X_combined)} samples. \n")
 
     #  Shuffle the combined dataset securely
-    print(" [+] Shuffling data to prevent catastrophic forgetting...")
+    print("\n Shuffling data to prevent catastrophic forgetting... \n ")
     X_shuffled, y_shuffled = shuffle(X_combined, y_combined, random_state=42)
 
     # Feature Scaling
-    print(" [+] Scaling features (StandardScaler)...")
+    print("\n Scaling features (StandardScaler)...\n ")
     scaler = StandardScaler()
     X_scaled = scaler.fit_transform(X_shuffled)
 
     # Train the Neural Network
-    print(" [+] Training Neural Network (MLPClassifier)...")
-    # You can adjust hyperparameters based on your original non_linear.py logic
+    print("\n Training Neural Network (MLPClassifier)...")
+    #can adjust hyperparameters based on your original non_linear.py logic
     model = MLPClassifier(
         hidden_layer_sizes=(64, 32),
         activation='relu',
@@ -91,22 +93,22 @@ def perform_adaptive_retraining():
     )
     
     model.fit(X_scaled, y_shuffled)
-    print(f" [+] Training completed. Final model score (accuracy): {model.score(X_scaled, y_shuffled):.4f}")
+    print(f"\n Training completed. Final model score (accuracy): {model.score(X_scaled, y_shuffled):.4f}")
 
-    # Save the updated Model and Scaler
-    print(" [+] Saving updated model and scaler to disk...")
+    # save the updated model and scaler
+    print(f"\n Saving updated model and scaler to disk...")
     joblib.dump(model, model_out_path)
     joblib.dump(scaler, scaler_out_path)
     
-    print(f" [SUCCESS] Adaptive retraining complete. New weights deployed to {model_dir}/")
+    print(f"\n Adaptive retraining complete. New weights deployed to {model_dir}/")
 
-    # Delete the temporary batch to free up space and prepare for the next cycle
+    # delete the temporary batch to free up space and prepare for the next cycle
     if os.path.exists(adaptive_path):
         try:
             os.remove(adaptive_path)
-            print(f" [+] Cleaned up temporary training batch: {adaptive_path}")
+            print(f"\n Cleaned up temporary training batch: {adaptive_path}")
         except Exception as e:
-            print(f" [!] Failed to delete {adaptive_path}: {e}")
+            print(f"\n Failed to delete {adaptive_path}: {e}")
 
 if __name__ == "__main__":
     perform_adaptive_retraining()

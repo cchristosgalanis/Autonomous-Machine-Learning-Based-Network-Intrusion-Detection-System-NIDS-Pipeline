@@ -9,6 +9,7 @@ import non_linear as nl
 def delivery_report(err, msg):
     if err is not None: print(f" [Kafka Error] Message delivery failed: {err}")
 
+# function for the consumer that listens to the Kafka topic, performs spatial and DNS analysis, and produces unified features for the MLP
 def Consumer_Spatial_func():
     broker = os.getenv('KAFKA_BROKER', 'localhost:9092')
 
@@ -59,7 +60,7 @@ def Consumer_Spatial_func():
             
             current_plot_time = time.time()
 
-            # --- SPATIAL / BOTNET ---
+            # --- spatial / botnet ---
             if curr_topic == spatial_topic:
                 target_port = payload.get('target_port')
                 k = payload.get('k_size', 256)

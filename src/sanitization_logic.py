@@ -13,10 +13,10 @@ def is_valid_ip(ip):
 def sanitization_logic(training_candidates_path):
     """
     Sanitizes raw training data based on confidence thresholds and IP validity.
-    - Filters out invalid IPs.
-    - Labels Host traffic as Benign (0).
-    - Labels high-confidence attacks as Attack (1).
-    - Filters out 'uncertain' samples from the training batch.
+    -> Filters out invalid IPs.
+    -> Labels Host traffic as Benign (0).
+    -> Labels high-confidence attacks as Attack (1).
+    -> Filters out 'uncertain' samples from the training batch.
     """
 
     HOST_IP = os.getenv('HOST_IP', '127.0.0.1')
@@ -42,12 +42,12 @@ def sanitization_logic(training_candidates_path):
                     continue
                 
                 # filtering strategy
-                # We only want samples that we are highly confident about
+                # samples that we are highly confident about
                 is_confident_attack = (prob >= CONFIDENCE_THRESHOLD)
                 is_confident_benign = (prob <= T_SAFE)
                 
                 # labeling logic
-                # If it's the Host, force label as Benign (0)
+                #Host -> force label as Benign (0)
                 if entity_id == HOST_IP:
                     sanitized_X.append(data["features"])
                     sanitized_y.append(0)
@@ -56,12 +56,12 @@ def sanitization_logic(training_candidates_path):
                     sanitized_X.append(data["features"])
                     sanitized_y.append(0)
                 
-                # if it's a confident attack, keep it as Attack (1)
+                # if attack -> 1
                 elif is_confident_attack:
                     sanitized_X.append(data["features"])
                     sanitized_y.append(1)
                 
-                # ignore 'is_uncertain' samples during training to prevent poisoning
+                # ignore uncertain samples during training to prevent poisoning
                 else:
                     continue
 

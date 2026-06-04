@@ -5,23 +5,44 @@ import time
 import os
 import non_linear as nl
 
+#function to rotate log files and keep only the most recent entries, to prevent infinite growth of log files
+def rotate_log_file(filepath, max_lines=1000):
+    """
+    Reads the file, checks its length, and if it exceeds max_lines,
+    truncates it to keep only the most recent 'max_lines'.
+    """
+    if not os.path.exists(filepath):
+        return
+    try:
+        with open(filepath, 'r', encoding='utf-8') as f:
+            lines = f.readlines()
+        
+        if len(lines) > max_lines:
+            # Keep only the last 'max_lines'
+            with open(filepath, 'w', encoding='utf-8') as f:
+                f.writelines(lines[-max_lines:])
+    except Exception as e:
+        print(f"\n Error rotating log {filepath}: {e}")
+
+# main yfunction for the consumer that listens to the Kafka topic, performs inference, and logs results
 def Consumer_NN_func():
     HOST_IP = os.getenv('HOST_IP', '127.0.0.1')
     
-    # Define paths for hot-reloading
+    # define paths for hot-reloading
     model_path = os.path.join("models", "mlp_model.pkl")
     scaler_path = os.path.join("models", "scaler.pkl")
 
-    print("\n [AI Engine] Loading Initial Neural Network and Scaler...")
+    print("\n [AI Engine] Loading Initial Neural Network and Scaler... \n")
     model, scaler = nl.load_nn_model_and_scaler()
     
     if model is None or scaler is None:
         print("Error: Model or scaler could not be loaded. Exiting.")
         return
 
-    # Track the last time the model file was modified on disk
+    # track the last time the model file was modified on disk
     last_model_timestamp = os.path.getmtime(model_path) if os.path.exists(model_path) else 0
 
+    #kafkas consumer configuration
     broker = os.getenv('KAFKA_BROKER', 'localhost:9092')
     conf_consumer = {
         'bootstrap.servers': broker,
@@ -42,6 +63,7 @@ def Consumer_NN_func():
 
     os.makedirs("logs", exist_ok=True)
     master_log_path = "logs/master_traffic_records.jsonl"
+    alerts_log_path = "logs/nids_final_alerts.log"
 
     try:
         while True:
@@ -51,7 +73,6 @@ def Consumer_NN_func():
             if msg is not None and not msg.error():
                 try:
                     payload = json.loads(msg.value().decode('utf-8'))
-                    #change on this line, in order to avoid get port number instead of IP address, since some analyzers (like spatial) don't have IP as key
                     entity_id = payload.get('source_ip','Unknown')
                     if entity_id == 'Unknown':
                         continue
@@ -68,29 +89,31 @@ def Consumer_NN_func():
                         aggregate_buffer[entity_id][analyzer].append(metrics)
 
                 except Exception as e:
-                    print(f" [!] JSON parsing error: {e}")
+                    print(f"\n JSON parsing error: {e}")
 
             if current_time - last_evaluation_time >= WINDOW_INTERVAL:
                 
-                # --- HOT RELOAD LOGIC ---
-                # Check if retraining service dropped a new model before evaluating
+                # --- hot reload logic ---
+                # check if retraining service dropped a new model before evaluating
                 if os.path.exists(model_path):
                     current_model_timestamp = os.path.getmtime(model_path)
                     
                     if current_model_timestamp > last_model_timestamp:
-                        print("\n [!] Model update detected on disk! Hot-reloading weights...")
+                        print("\n Model update detected on disk! Hot-reloading weights...")
                         try:
-                            # Load the new weights and scaler
+                            # load the new weights and scaler
                             new_model, new_scaler = nl.load_nn_model_and_scaler()
                             if new_model is not None and new_scaler is not None:
                                 model = new_model
                                 scaler = new_scaler
                                 last_model_timestamp = current_model_timestamp
-                                print(" [SUCCESS] New Neural Network weights loaded seamlessly.")
+                                print("\n New Neural Network weights loaded seamlessly.")
                             else:
                                 print(" [!] Failed to load new weights. Keeping old model in memory.")
                         except Exception as e:
-                            print(f" [!] Error during hot-reload: {e}")
+                            print(f"\n Error during hot-reload: {e}")
+
+
                 # ------------------------
 
                 if len(aggregate_buffer) > 0:
@@ -115,8 +138,9 @@ def Consumer_NN_func():
 
                     print(f"\n --- [AI Engine] Window Evaluated: {len(entities_batch)} unique IPs ---")
 
+                    # We write alerts here
                     with open(master_log_path, "a", encoding="utf-8") as master_log, \
-                         open("logs/nids_final_alerts.log", "a", encoding="utf-8") as alert_log:
+                         open(alerts_log_path, "a", encoding="utf-8") as alert_log:
                         
                         for idx, prob in enumerate(probabilities):
                             ip = entities_batch[idx]
@@ -137,6 +161,10 @@ def Consumer_NN_func():
                                 alert_msg = f"[{timestamp_str}] ALERT: Malicious Traffic from {ip} (Prob: {prob:.2%})\n"
                                 print(alert_msg.strip())
                                 alert_log.write(alert_msg)
+                    
+                    # --- clean up ---
+                    # rotate the alert log so it doesn't grow infinitely. Keep last 1000 alerts.
+                    rotate_log_file(alerts_log_path, max_lines=1000)
                 
                 aggregate_buffer.clear()
                 last_evaluation_time = current_time
