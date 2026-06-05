@@ -13,6 +13,7 @@ services:
       timeout: 5s
       retries: 5
 
+# kafka service initialization
   kafka:
     image: confluentinc/cp-kafka:7.4.0
     container_name: ids-kafka
@@ -34,6 +35,26 @@ services:
       timeout: 5s
       retries: 5
 
+  # database service with TimescaleDB (PostgreSQL)
+  timescaledb:
+    image: timescale/timescaledb:latest-pg14
+    container_name: ids-timescaledb
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=yourpassword
+      - POSTGRES_DB=postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - timescaledb_data:/var/lib/postgresql/data
+      - ./database/init_schema.sql:/docker-entrypoint-initdb.d/init_schema.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+# producer service 
   producer:
     build:
       context: .
@@ -50,6 +71,7 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+# volumetric consumer
   consumer-volumetric:
     build:
       context: .
@@ -66,6 +88,7 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+# stealth consumer 
   consumer-stealth:
     build:
       context: .
@@ -82,6 +105,7 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+# spatial analysis consumer
   consumer-spatial:
     build:
       context: .
@@ -98,6 +122,7 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+# neural network consumer for MLP model training and inference
   consumer-mlp:
     build:
       context: .
@@ -107,6 +132,11 @@ services:
       - HOST_IP=${HOST_IP}
       - KAFKA_BROKER=kafka:29092
       - PYTHONUNBUFFERED=1
+      # Credentials για σύνδεση με τη βάση
+      - DB_HOST=timescaledb
+      - DB_USER=postgres
+      - DB_PASS=yourpassword
+      - DB_NAME=postgres
     volumes:
       - ./logs:/app/logs
       - ./models:/app/models 
@@ -114,8 +144,11 @@ services:
     depends_on:
       kafka:
         condition: service_healthy
+      timescaledb:
+        condition: service_healthy
     restart: unless-stopped
 
+# sanitization service for cleaning and labeling 
   sanitization-service:
     build:
       context: .
@@ -123,14 +156,22 @@ services:
     container_name: ids-sanitization-service
     environment:
       - PYTHONUNBUFFERED=1
+      # Credentials για σύνδεση με τη βάση
+      - HOST_IP=${HOST_IP}
+      - DB_HOST=timescaledb
+      - DB_USER=postgres
+      - DB_PASS=yourpassword
+      - DB_NAME=postgres
     volumes:
       - ./logs:/app/logs      
       - ./models:/app/models  
     command: ["python3", "sanitization_service.py"]
     depends_on:
       - consumer-mlp
+      - timescaledb
     restart: unless-stopped
 
+# adaptive learning service  | background process 
   adaptive-learning:
     build:
       context: .
@@ -138,13 +179,20 @@ services:
     container_name: ids-adaptive-learning
     environment:
       - PYTHONUNBUFFERED=1
+      # credentials for database connection
+      - DB_HOST=timescaledb
+      - DB_USER=postgres
+      - DB_PASS=yourpassword
+      - DB_NAME=postgres
     volumes:
       - ./models:/app/models  
     command: ["/bin/sh", "-c", "while true; do sleep 60; python3 adaptive_learning.py; done"]
     depends_on:
       - sanitization-service
+      - timescaledb
     restart: unless-stopped
 
+# frontend dashboerd for datas visualization and real-time monitoring
   frontend-dashboard:
     build:
       context: .
@@ -159,3 +207,7 @@ services:
     depends_on:
       - consumer-mlp
     restart: unless-stopped
+
+# volume for TimescaleDB data persistence
+volumes:
+  timescaledb_data:

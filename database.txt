@@ -1,0 +1,19 @@
+ 1) docker exec -it ids-timescaledb psql -U postgres 
+
+ 2) \dt -> all tables
+
+ 3) \d network_traffic_events -> arrays and types
+
+ 4) SELECT COUNT(*) FROM network_traffic_events; -> total writes
+
+ 5) SELECT time, source_ip, probability, prediction 
+FROM network_traffic_events 
+ORDER BY time DESC 
+LIMIT 5; -> 5 latest events 
+
+ 6) SELECT time, source_ip, probability 
+FROM network_traffic_events 
+WHERE prediction = 1 
+ORDER BY time DESC; -> get only attacks 
+
+ 7) SELECT COUNT(*) FROM network_traffic_events WHERE is_processed = FALSE; -> unprocceced datas

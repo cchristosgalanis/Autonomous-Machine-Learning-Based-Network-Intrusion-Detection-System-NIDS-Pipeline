@@ -1,78 +1,71 @@
-import json
 import numpy as np
-import ipaddress
+import psycopg2
 import os
 
-def is_valid_ip(ip):
-    try:
-        ipaddress.ip_address(ip)
-        return True
-    except ValueError:
-        return False
-    
-def sanitization_logic(training_candidates_path):
+def sanitization_logic():
     """
-    Sanitizes raw training data based on confidence thresholds and IP validity.
-    -> Filters out invalid IPs.
-    -> Labels Host traffic as Benign (0).
-    -> Labels high-confidence attacks as Attack (1).
-    -> Filters out 'uncertain' samples from the training batch.
+    Sanitizes raw training data by querying the database directly.
+    - Fetches only unprocessed records (is_processed=FALSE).
+    - Uses SQL to filter only highly confident predictions or Host traffic.
+    - Labels Host traffic as Benign (0).
+    - Updates the database to mark fetched records as processed.
     """
 
     HOST_IP = os.getenv('HOST_IP', '127.0.0.1')
+    
+    # Database Credentials
+    DB_HOST = os.getenv('DB_HOST', 'localhost')
+    DB_USER = os.getenv('DB_USER', 'postgres')
+    DB_PASS = os.getenv('DB_PASS', 'yourpassword')
+    DB_NAME = os.getenv('DB_NAME', 'postgres')
+    
     T_SAFE = 0.15
     CONFIDENCE_THRESHOLD = 0.85
     
     sanitized_X = []
     sanitized_y = []
 
-    if not os.path.exists(training_candidates_path):
-        print(f" [!] File not found: {training_candidates_path}")
+    try:
+        # connect to the database
+        conn = psycopg2.connect(host=DB_HOST, user=DB_USER, password=DB_PASS, dbname=DB_NAME)
+        cursor = conn.cursor()
+
+        # get only unprocessed records with high confidence or Host traffic
+        select_query = f"""
+            SELECT source_ip, velocity, acceleration, iat_mean, sa_ratio, jaccard_score, entropy_shannon, prediction 
+            FROM network_traffic_events 
+            WHERE is_processed = FALSE 
+              AND (probability <= {T_SAFE} OR probability >= {CONFIDENCE_THRESHOLD} OR source_ip = '{HOST_IP}');
+        """
+        cursor.execute(select_query)
+        records = cursor.fetchall()
+
+        if not records:
+            cursor.close()
+            conn.close()
+            return None, None
+
+        # feature extraction and labeling
+        for row in records:
+            ip = row[0]
+            features = list(row[1:7])  # mapping velocity, acceleration, iat_mean, sa_ratio, jaccard_score, entropy_shannon
+            
+            # if host_ip -> benign = 0 | else use the original prediction 
+            label = 0 if ip == HOST_IP else int(row[7])
+            
+            sanitized_X.append(features)
+            sanitized_y.append(label)
+
+        # update database for this batch to prevent reprocessing
+        update_query = "UPDATE network_traffic_events SET is_processed = TRUE WHERE is_processed = FALSE;"
+        cursor.execute(update_query)
+        conn.commit()
+
+        cursor.close()
+        conn.close()
+
+        return np.array(sanitized_X), np.array(sanitized_y)
+
+    except Exception as e:
+        print(f"\n Database Sanitization Error: {e}")
         return None, None
-    
-    with open(training_candidates_path, 'r', encoding='utf-8') as f:
-        for line in f:
-            try:
-                data = json.loads(line)
-                entity_id = data.get("entity_id")
-                prob = data.get("probability", 0.0)
-                
-                # filter: ensure entity is a valid IP
-                if not is_valid_ip(entity_id):
-                    continue
-                
-                # filtering strategy
-                # samples that we are highly confident about
-                is_confident_attack = (prob >= CONFIDENCE_THRESHOLD)
-                is_confident_benign = (prob <= T_SAFE)
-                
-                # labeling logic
-                #Host -> force label as Benign (0)
-                if entity_id == HOST_IP:
-                    sanitized_X.append(data["features"])
-                    sanitized_y.append(0)
-                
-                elif is_confident_benign: 
-                    sanitized_X.append(data["features"])
-                    sanitized_y.append(0)
-                
-                # if attack -> 1
-                elif is_confident_attack:
-                    sanitized_X.append(data["features"])
-                    sanitized_y.append(1)
-                
-                # ignore uncertain samples during training to prevent poisoning
-                else:
-                    continue
-
-            except Exception as e:
-                continue
-
-    return np.array(sanitized_X), np.array(sanitized_y)
-
-if __name__ == "__main__":
-    X, y = sanitization_logic("logs/training_candidates.jsonl")
-    
-    if X is not None and len(X) > 0:
-        np.savez("features/adaptive_batch.npz", X=X, y=y)
-        print(f"[*] Sanitization complete. {len(X)} samples ready for training.")

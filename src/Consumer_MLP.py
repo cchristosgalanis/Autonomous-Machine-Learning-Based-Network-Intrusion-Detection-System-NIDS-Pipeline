@@ -4,13 +4,11 @@ import numpy as np
 import time
 import os
 import non_linear as nl
+import psycopg2
+from psycopg2 import extras
+import datetime
 
-#function to rotate log files and keep only the most recent entries, to prevent infinite growth of log files
 def rotate_log_file(filepath, max_lines=1000):
-    """
-    Reads the file, checks its length, and if it exceeds max_lines,
-    truncates it to keep only the most recent 'max_lines'.
-    """
     if not os.path.exists(filepath):
         return
     try:
@@ -18,31 +16,33 @@ def rotate_log_file(filepath, max_lines=1000):
             lines = f.readlines()
         
         if len(lines) > max_lines:
-            # Keep only the last 'max_lines'
             with open(filepath, 'w', encoding='utf-8') as f:
                 f.writelines(lines[-max_lines:])
     except Exception as e:
         print(f"\n Error rotating log {filepath}: {e}")
 
-# main yfunction for the consumer that listens to the Kafka topic, performs inference, and logs results
+# main function for the consumer that runs the neural network inference and handles hot-reloading of the model weights
 def Consumer_NN_func():
     HOST_IP = os.getenv('HOST_IP', '127.0.0.1')
     
-    # define paths for hot-reloading
+    # database credentials
+    DB_HOST = os.getenv('DB_HOST', 'localhost')
+    DB_USER = os.getenv('DB_USER', 'postgres')
+    DB_PASS = os.getenv('DB_PASS', 'yourpassword')
+    DB_NAME = os.getenv('DB_NAME', 'postgres')
+    
     model_path = os.path.join("models", "mlp_model.pkl")
     scaler_path = os.path.join("models", "scaler.pkl")
 
-    print("\n [AI Engine] Loading Initial Neural Network and Scaler... \n")
+    print("\n --AI Engine-- Loading Initial Neural Network and Scaler... \n")
     model, scaler = nl.load_nn_model_and_scaler()
     
     if model is None or scaler is None:
         print("Error: Model or scaler could not be loaded. Exiting.")
         return
 
-    # track the last time the model file was modified on disk
     last_model_timestamp = os.path.getmtime(model_path) if os.path.exists(model_path) else 0
 
-    #kafkas consumer configuration
     broker = os.getenv('KAFKA_BROKER', 'localhost:9092')
     conf_consumer = {
         'bootstrap.servers': broker,
@@ -55,14 +55,13 @@ def Consumer_NN_func():
     input_topic = 'unified-features-topic'
     consumer.subscribe([input_topic])
 
-    print(f"\n [AI Engine] Listening to '{input_topic}' for 10-second windows...\n")
+    print(f"\n --AI Engine-- Listening to '{input_topic}' for 10-second windows...\n")
 
     WINDOW_INTERVAL = 10.0
     last_evaluation_time = time.time()
     aggregate_buffer = {}
 
     os.makedirs("logs", exist_ok=True)
-    master_log_path = "logs/master_traffic_records.jsonl"
     alerts_log_path = "logs/nids_final_alerts.log"
 
     try:
@@ -77,7 +76,7 @@ def Consumer_NN_func():
                     if entity_id == 'Unknown':
                         continue
 
-                    analyzer = payload.get('analyzer')
+                    analyzer = payload.get('analyzer', 'unknown')
                     metrics = payload.get('metrics', {})
 
                     if entity_id not in aggregate_buffer:
@@ -94,14 +93,12 @@ def Consumer_NN_func():
             if current_time - last_evaluation_time >= WINDOW_INTERVAL:
                 
                 # --- hot reload logic ---
-                # check if retraining service dropped a new model before evaluating
                 if os.path.exists(model_path):
                     current_model_timestamp = os.path.getmtime(model_path)
                     
                     if current_model_timestamp > last_model_timestamp:
                         print("\n Model update detected on disk! Hot-reloading weights...")
                         try:
-                            # load the new weights and scaler
                             new_model, new_scaler = nl.load_nn_model_and_scaler()
                             if new_model is not None and new_scaler is not None:
                                 model = new_model
@@ -112,9 +109,6 @@ def Consumer_NN_func():
                                 print(" [!] Failed to load new weights. Keeping old model in memory.")
                         except Exception as e:
                             print(f"\n Error during hot-reload: {e}")
-
-
-                # ------------------------
 
                 if len(aggregate_buffer) > 0:
                     X_batch = []
@@ -138,39 +132,59 @@ def Consumer_NN_func():
 
                     print(f"\n --- [AI Engine] Window Evaluated: {len(entities_batch)} unique IPs ---")
 
-                    # We write alerts here
-                    with open(master_log_path, "a", encoding="utf-8") as master_log, \
-                         open(alerts_log_path, "a", encoding="utf-8") as alert_log:
-                        
+                    # write results to database and log alerts for malicious predictions
+                    db_records = []
+                    
+                    with open(alerts_log_path, "a", encoding="utf-8") as alert_log:
                         for idx, prob in enumerate(probabilities):
                             ip = entities_batch[idx]
                             pred = int(predictions[idx])
+                            features = X_batch[idx]
+                            is_host = (ip == HOST_IP)
+                            dt_time = datetime.datetime.fromtimestamp(current_time)
                             
-                            record = {
-                                "timestamp": current_time,
-                                "entity_id": ip,
-                                "features": X_batch[idx],
-                                "prediction": pred,
-                                "probability": float(prob),
-                                "is_host_ip": (ip == HOST_IP)
-                            }
-                            master_log.write(json.dumps(record) + "\n")
+                            # Δημιουργία του tuple για το SQL Insert
+                            db_records.append((
+                                dt_time, ip, 'aggregated', is_host,
+                                float(features[0]), float(features[1]), float(features[2]),
+                                float(features[3]), float(features[4]), float(features[5]),
+                                float(prob), pred
+                            ))
                             
                             if pred == 1:
-                                timestamp_str = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(current_time))
+                                timestamp_str = dt_time.strftime("%Y-%m-%d %H:%M:%S")
                                 alert_msg = f"[{timestamp_str}] ALERT: Malicious Traffic from {ip} (Prob: {prob:.2%})\n"
                                 print(alert_msg.strip())
                                 alert_log.write(alert_msg)
                     
-                    # --- clean up ---
-                    # rotate the alert log so it doesn't grow infinitely. Keep last 1000 alerts.
+                    # write to database in batches for efficiency
+                    if db_records:
+                        try:
+                            conn = psycopg2.connect(host=DB_HOST, user=DB_USER, password=DB_PASS, dbname=DB_NAME)
+                            cursor = conn.cursor()
+                            
+                            insert_query = """
+                                INSERT INTO network_traffic_events (
+                                    time, source_ip, analyzer, is_host_ip, 
+                                    velocity, acceleration, iat_mean, sa_ratio, jaccard_score, entropy_shannon, 
+                                    probability, prediction
+                                ) VALUES %s
+                            """
+                            extras.execute_values(cursor, insert_query, db_records)
+                            conn.commit()
+                            
+                            cursor.close()
+                            conn.close()
+                        except Exception as db_err:
+                            print(f"\n Database Insert Error: {db_err}")
+                    
                     rotate_log_file(alerts_log_path, max_lines=1000)
                 
                 aggregate_buffer.clear()
                 last_evaluation_time = current_time
 
     except KeyboardInterrupt:
-        print("\n [AI Engine] Shutting down... \n")
+        print("\n --AI Engine-- Shutting down... \n")
     finally:
         consumer.close()
 

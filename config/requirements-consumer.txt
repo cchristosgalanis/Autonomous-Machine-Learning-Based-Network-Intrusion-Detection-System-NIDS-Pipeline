@@ -3,3 +3,4 @@ confluent-kafka
 pandas
 numpy
 joblib
+psycopg2-binary
