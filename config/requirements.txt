@@ -8,3 +8,4 @@ scapy
 pcapy-ng
 confluent-kafka
 dpkt
+psycopg2-binary
