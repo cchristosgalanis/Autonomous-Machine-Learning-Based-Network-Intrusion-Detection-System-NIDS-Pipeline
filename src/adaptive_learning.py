@@ -74,7 +74,7 @@ def perform_adaptive_retraining():
     y_combined = historical_data['y']
     
     # load new data from the database that has been sanitized and labeled by the sanitization service
-    print(" [+] Fetching accumulated adaptive data from Database (Last 7 Days)...")
+    print("\n Fetching accumulated adaptive data from Database (Last 7 Days)...")
     X_adapt, y_adapt = fetch_adaptive_data_from_db()
     
     if len(X_adapt) > 0:
@@ -94,7 +94,7 @@ def perform_adaptive_retraining():
     attacks_to_keep = max(len(idx_benign), 5000)
     
     if len(idx_attack) > attacks_to_keep:
-        print(f" [+] Undersampling attacks from {len(idx_attack)} down to {attacks_to_keep} to match benign traffic...")
+        print(f"\n Undersampling attacks from {len(idx_attack)} down to {attacks_to_keep} to match benign traffic...")
         np.random.shuffle(idx_attack)
         idx_attack = idx_attack[:attacks_to_keep]
 
