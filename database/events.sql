@@ -15,7 +15,7 @@ CREATE TABLE network_traffic_events (
     iat_mean DOUBLE PRECISION, -- mean inter-arrival time
     sa_ratio DOUBLE PRECISION, -- source to destination ratio
     jaccard_score DOUBLE PRECISION, -- Jaccard similarity score
-    entropy_shannon DOUBLE PRECISION, -- Shannon entropy of the traffic
+    entropy_shannon DOUBLE PRECISION, -- σhannon entropy of the payload
 
     -- Neural network outcome
     probability DOUBLE PRECISION NOT NULL, -- probability of being malicious
@@ -23,7 +23,7 @@ CREATE TABLE network_traffic_events (
 
     -- pipeline state
     is_processed BOOLEAN DEFAULT FALSE -- flag to indicate if the event has been processed
-)
+);
 
 -- convert into TimescaleDB hypertable
 SELECT create_hypertable('network_traffic_events', 'time');
@@ -38,4 +38,6 @@ WHERE prediction = 1;
 
 -- for a given source IP, get the most recent events
 CREATE INDEX idx_source_ip ON network_traffic_events (source_ip, time DESC);
+
+SELECT add_retention_policy('network_traffic_events', INTERVAL '30 days'); -- change if needed | days for keeping datas 
 

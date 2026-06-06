@@ -82,7 +82,7 @@ def Consumer_func():
                 
                 if len(ip_residual_memories[src_ip]) >= 2:
                     vel, acc = nl.compute_kinematic(list(ip_residual_memories[src_ip]))
-                    # Παίρνουμε τις απόλυτες τιμές όπως στο training (γραμμή 46 στο feature_extraction.py)
+                    # get absolute values for better interpretability in logs and features
                     log_velocity = abs(vel)
                     log_acceleration = abs(acc)
 
@@ -93,7 +93,7 @@ def Consumer_func():
                 writer = csv.writer(f)
                 writer.writerow([current_plot_time, src_ip, current_residual, log_velocity, log_acceleration])
 
-            # kafka payload για το unified-features topic
+            # kafka payload for the unified-features topic
             feature_payload = {
                 "source_ip": src_ip,
                 "analyzer": "volumetric",

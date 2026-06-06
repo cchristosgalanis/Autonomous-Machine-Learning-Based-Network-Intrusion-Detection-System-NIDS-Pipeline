@@ -47,7 +47,7 @@ services:
       - "5432:5432"
     volumes:
       - timescaledb_data:/var/lib/postgresql/data
-      - ./database/init_schema.sql:/docker-entrypoint-initdb.d/init_schema.sql
+      - ./database/events.sql:/docker-entrypoint-initdb.d/events.sql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 10s
@@ -132,7 +132,7 @@ services:
       - HOST_IP=${HOST_IP}
       - KAFKA_BROKER=kafka:29092
       - PYTHONUNBUFFERED=1
-      # Credentials για σύνδεση με τη βάση
+       # Credentials for database connection
       - DB_HOST=timescaledb
       - DB_USER=postgres
       - DB_PASS=yourpassword
@@ -156,7 +156,7 @@ services:
     container_name: ids-sanitization-service
     environment:
       - PYTHONUNBUFFERED=1
-      # Credentials για σύνδεση με τη βάση
+      # Credentials for database connection
       - HOST_IP=${HOST_IP}
       - DB_HOST=timescaledb
       - DB_USER=postgres
@@ -186,13 +186,13 @@ services:
       - DB_NAME=postgres
     volumes:
       - ./models:/app/models  
-    command: ["/bin/sh", "-c", "while true; do sleep 60; python3 adaptive_learning.py; done"]
+    command: ["/bin/sh", "-c", "while true; do sleep 60; python3 adaptive_learning.py; done"] # change  sleep duration as needed so if per day, use 86400 seconds
     depends_on:
       - sanitization-service
       - timescaledb
     restart: unless-stopped
 
-# frontend dashboerd for datas visualization and real-time monitoring
+# frontend dashboard for datas visualization and real-time monitoring
   frontend-dashboard:
     build:
       context: .

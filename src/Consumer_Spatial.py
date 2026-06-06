@@ -13,6 +13,7 @@ def delivery_report(err, msg):
 def Consumer_Spatial_func():
     broker = os.getenv('KAFKA_BROKER', 'localhost:9092')
 
+    #kafka consumer and producer configuration
     conf_consumer = {
         'bootstrap.servers': broker,
         'group.id': 'spatial-analyzer-group',
@@ -33,6 +34,7 @@ def Consumer_Spatial_func():
     print(f"\n Spatial & DNS Feature Extractor connected.")
     print(f" Writing to '{output_topic}'...\n")
 
+    # variables for spatial analysis
     prev_signatures = {}
     JACCARD_THRESHOLD = 0.70
 

@@ -32,6 +32,7 @@ def Producer_func():
     dns_topic = 'dns-queries'
     active_flow_states = {}
 
+    #  get datas and create Kafka messages in an infinite loop
     try:
         while True:
             flow_data, spatial_payload, dns_queries = libpcap_capture(capture_duration=2, interface=interface, flow_states=active_flow_states)

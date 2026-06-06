@@ -41,6 +41,7 @@ def Consumer_NN_func():
         print("Error: Model or scaler could not be loaded. Exiting.")
         return
 
+    # kafka consumer configuration
     last_model_timestamp = os.path.getmtime(model_path) if os.path.exists(model_path) else 0
 
     broker = os.getenv('KAFKA_BROKER', 'localhost:9092')
@@ -55,6 +56,7 @@ def Consumer_NN_func():
     input_topic = 'unified-features-topic'
     consumer.subscribe([input_topic])
 
+    # initial log message
     print(f"\n --AI Engine-- Listening to '{input_topic}' for 10-second windows...\n")
 
     WINDOW_INTERVAL = 10.0
@@ -143,7 +145,7 @@ def Consumer_NN_func():
                             is_host = (ip == HOST_IP)
                             dt_time = datetime.datetime.fromtimestamp(current_time)
                             
-                            # Δημιουργία του tuple για το SQL Insert
+                            # create tuple for sql database insertion
                             db_records.append((
                                 dt_time, ip, 'aggregated', is_host,
                                 float(features[0]), float(features[1]), float(features[2]),
