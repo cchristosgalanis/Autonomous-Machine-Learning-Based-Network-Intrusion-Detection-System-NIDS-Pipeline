@@ -158,8 +158,8 @@ To combat network environment drift (concept drift) and minimize false positives
 3. **Environment Setup**:
    Create a `.env` file in the root directory (or pass them directly) containing:
    ```bash
-   INTERFACE=en0       # Network interface to capture from (e.g. eth0 on Linux, en0 on macOS)
-   HOST_IP=192.168.1.5 # Local IP address of your host machine (used to label self-traffic)
+   INTERFACE=any       # Network interface to capture from (e.g. eth0 on Linux, en0 on macOS)
+   HOST_IP=<host_ip> # Local IP address of your host machine (e.g. ifconfig on MacOs or ip a on Linux)
    ```
 ---
 ## Deployment & Running
