@@ -1,0 +1,15 @@
+{
+    "thresholds":{
+        "warning":0.90,
+        "critical_block":0.97
+    },
+
+    "endpoints":{
+        "notification_webhook": "https://hooks.slack.com/services/YOUR/MOCK/URL",
+        "firewall_api": "http://127.0.0.1:8080/api/v1/block"
+    },
+
+    "auth": {
+    "firewall_api_key": "super_secret_token_123"
+  }
+}
