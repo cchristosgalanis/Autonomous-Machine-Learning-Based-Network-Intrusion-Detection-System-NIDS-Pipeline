@@ -220,6 +220,15 @@ Inside the database prompt, run these queries to check system operations:
   SELECT COUNT(*) FROM network_traffic_events WHERE is_processed = FALSE;
   ```
 ---
+
+## ⚙️ Prerequisites & Installation
+
+### 1. System Requirements (Linux/Ubuntu)
+For the desktop alerting module to function natively on Linux environments, the `libnotify-bin` package is required:
+```bash
+sudo apt-get update
+sudo apt-get install libnotify-bin
+
 ## Telemetry Dashboard
 The dashboard provides a real-time web portal to monitor system diagnostics and critical alerts.
 1. Open your browser and navigate to `http://localhost:8501`.

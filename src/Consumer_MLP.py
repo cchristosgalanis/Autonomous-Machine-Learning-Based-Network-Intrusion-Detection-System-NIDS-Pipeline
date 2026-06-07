@@ -7,6 +7,7 @@ import non_linear as nl
 import psycopg2
 from psycopg2 import extras
 import datetime
+from alert_dispatcher import load_alert_config, dispatch_alert
 
 def rotate_log_file(filepath, max_lines=1000):
     if not os.path.exists(filepath):
@@ -65,6 +66,11 @@ def Consumer_NN_func():
 
     os.makedirs("logs", exist_ok=True)
     alerts_log_path = "logs/nids_final_alerts.log"
+
+    print("\n --AI Engine-- Loading Alert Configuration...")
+    alert_config = load_alert_config(config_path="config/alerts_config.json")
+    if not alert_config:
+        print("\n Alerting module disabled due to missing configuration.")
 
     try:
         while True:
@@ -152,6 +158,10 @@ def Consumer_NN_func():
                                 float(features[3]), float(features[4]), float(features[5]),
                                 float(prob), pred
                             ))
+
+                            # notification to system if there is a possible attack 
+                            if alert_config is not None:
+                                dispatch_alert(confidence=float(prob), source_ip=ip, config=alert_config)
                             
                             if pred == 1:
                                 timestamp_str = dt_time.strftime("%Y-%m-%d %H:%M:%S")
