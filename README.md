@@ -228,6 +228,7 @@ For the desktop alerting module to function natively on Linux environments, the 
 ```bash
 sudo apt-get update
 sudo apt-get install libnotify-bin
+```
 
 ## Telemetry Dashboard
 The dashboard provides a real-time web portal to monitor system diagnostics and critical alerts.
