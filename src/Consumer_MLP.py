@@ -95,22 +95,20 @@ def Consumer_NN_func():
             if current_time - last_evaluation_time >= WINDOW_INTERVAL:
                 
                 # --- hot reload logic ---
-                if os.path.exists(model_path):
-                    current_model_timestamp = os.path.getmtime(model_path)
-                    
-                    if current_model_timestamp > last_model_timestamp:
-                        print("\n Model update detected on disk! Hot-reloading weights...")
-                        try:
-                            new_model, new_scaler = nl.load_nn_model_and_scaler()
-                            if new_model is not None and new_scaler is not None:
-                                model = new_model
-                                scaler = new_scaler
-                                last_model_timestamp = current_model_timestamp
-                                print("\n New Neural Network weights loaded seamlessly.")
-                            else:
-                                print(" [!] Failed to load new weights. Keeping old model in memory.")
-                        except Exception as e:
-                            print(f"\n Error during hot-reload: {e}")
+                flag_path = "models/reload_flag.txt"
+                if os.path.exists(flag_path):
+                    print("\n Model update flag detected! Hot-reloading weights...")
+                    try:
+                        new_model, new_scaler = nl.load_nn_model_and_scaler()
+                        if new_model is not None and new_scaler is not None:
+                            model = new_model
+                            scaler = new_scaler
+                            print("\n New Neural Network weights loaded seamlessly.")
+                            os.remove(flag_path)
+                        else:
+                            print("\n Failed to load new weights. Keeping old model in memory.")
+                    except Exception as e:
+                        print(f"\n Error during hot-reload: {e}")
 
                 if len(aggregate_buffer) > 0:
                     X_batch = []

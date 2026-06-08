@@ -91,12 +91,17 @@ def perform_adaptive_retraining():
     idx_benign = np.where(y_combined == 0)[0]
     idx_attack = np.where(y_combined == 1)[0]
 
-    attacks_to_keep = max(len(idx_benign), 5000)
-    
-    if len(idx_attack) > attacks_to_keep:
-        print(f"\n Undersampling attacks from {len(idx_attack)} down to {attacks_to_keep} to match benign traffic...")
-        np.random.shuffle(idx_attack)
-        idx_attack = idx_attack[:attacks_to_keep]
+    num_benign = len(idx_benign)
+
+    # stop retrain to avoid overfitting
+    if num_benign < 1000:
+        print(f"\n Not enough benign data for retraining ({num_benign}). Need at least 1000. Waiting for next cycle...\n")
+        return
+
+    # strict 1:1 balancing | attacks = benigns
+    print(f"\n Undersampling attacks from {len(idx_attack)} strictly down to {num_benign} to match benign traffic...")
+    np.random.shuffle(idx_attack)
+    idx_attack = idx_attack[:num_benign]
 
     balanced_indices = np.concatenate((idx_benign, idx_attack))
     X_combined = X_combined[balanced_indices]
@@ -131,6 +136,9 @@ def perform_adaptive_retraining():
     print(f"\n Saving updated model and scaler to disk...")
     joblib.dump(model, model_out_path)
     joblib.dump(scaler, scaler_out_path)
+
+    with open("models/reload_flag.txt", "w") as f:
+        f.write("reload")
     
     print(f"\n Adaptive retraining complete. New weights deployed to {model_dir}/")
 
