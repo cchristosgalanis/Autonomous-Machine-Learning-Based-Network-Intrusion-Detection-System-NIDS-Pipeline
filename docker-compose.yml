@@ -137,9 +137,14 @@ services:
       - DB_USER=postgres
       - DB_PASS=yourpassword
       - DB_NAME=postgres
+      - DISPLAY=$DISPLAY
+      - DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus
     volumes:
       - ./logs:/app/logs
       - ./models:/app/models 
+      - ./config:/app/config  # read config file 
+      - /tmp/.X11-unix:/tmp/.X11-unix:ro # pop-up
+      - /run/user/1000/bus:/run/user/1000/bus # get access to notification system
     command: ["python3", "Consumer_MLP.py"]
     depends_on:
       kafka:
@@ -186,7 +191,7 @@ services:
       - DB_NAME=postgres
     volumes:
       - ./models:/app/models  
-    command: ["/bin/sh", "-c", "while true; do sleep 60; python3 adaptive_learning.py; done"] # change  sleep duration as needed so if per day, use 86400 seconds
+    command: ["/bin/sh", "-c", "while true; do sleep 450; python3 adaptive_learning.py; done"] # change  sleep duration as needed so if per day, use 86400 seconds
     depends_on:
       - sanitization-service
       - timescaledb
