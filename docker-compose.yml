@@ -186,7 +186,7 @@ services:
       - DB_NAME=postgres
     volumes:
       - ./models:/app/models  
-    command: ["/bin/sh", "-c", "while true; do sleep 60; python3 adaptive_learning.py; done"] # change  sleep duration as needed so if per day, use 86400 seconds
+    command: ["/bin/sh", "-c", "while true; do sleep 450; python3 adaptive_learning.py; done"] # change  sleep duration as needed so if per day, use 86400 seconds
     depends_on:
       - sanitization-service
       - timescaledb
