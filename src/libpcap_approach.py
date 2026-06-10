@@ -45,11 +45,27 @@ def libpcap_capture(capture_duration, interface, flow_states,target_port=80):
             if not data:
                 continue
             
-            # decode frame
-            eth = dpkt.ethernet.Ethernet(data)
-
-            if isinstance(eth.data, dpkt.ip.IP):
-                ip = eth.data
+            # decode frame based on datalink type
+            try:
+                link_type = cap.datalink()
+            except Exception:
+                link_type = 1  # default to DLT_EN10MB
+            
+            dlt_null = getattr(pcapy, 'DLT_NULL', 0)
+            if link_type == dlt_null:
+                try:
+                    ip = dpkt.ip.IP(data[4:])
+                except Exception:
+                    continue
+            else:
+                try:
+                    eth = dpkt.ethernet.Ethernet(data)
+                    if isinstance(eth.data, dpkt.ip.IP):
+                        ip = eth.data
+                    else:
+                        continue
+                except Exception:
+                    continue
                 
                 # update global volumetric counters
                 global_total_packets += 1

@@ -143,6 +143,12 @@ def Consumer_NN_func():
                             is_host = (ip == HOST_IP)
                             dt_time = datetime.datetime.fromtimestamp(current_time)
                             
+                            # Heuristic override for completely benign/idle/quiet traffic to bypass model's zero-traffic bias
+                            vel, acc, iat, sa, jac, ent = features
+                            if vel == 0.0 and acc == 0.0 and iat == 0.0 and sa <= 1.2 and jac == 0.0 and ent < 2.5:
+                                pred = 0
+                                prob = 0.0
+                            
                             # create tuple for sql database insertion
                             db_records.append((
                                 dt_time, ip, 'aggregated', is_host,
