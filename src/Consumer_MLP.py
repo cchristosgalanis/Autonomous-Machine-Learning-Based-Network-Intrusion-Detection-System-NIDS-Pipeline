@@ -31,8 +31,8 @@ def Consumer_NN_func():
     DB_PASS = os.getenv('DB_PASS', 'yourpassword')
     DB_NAME = os.getenv('DB_NAME', 'postgres')
     
-    model_path = os.path.join("models", "mlp_model.pkl")
-    scaler_path = os.path.join("models", "scaler.pkl")
+    model_path = os.path.join("models", "mlp_model1.pkl")
+    scaler_path = os.path.join("models", "scaler1.pkl")
 
     print("\n --AI Engine-- Loading Initial Neural Network and Scaler... \n")
     model, scaler = nl.load_nn_model_and_scaler()
@@ -151,7 +151,7 @@ def Consumer_NN_func():
                                 float(prob), pred
                             ))
                             
-                            if pred == 1:
+                            if pred == 1 and prob >= 0.90:
                                 timestamp_str = dt_time.strftime("%Y-%m-%d %H:%M:%S")
                                 alert_msg = f"[{timestamp_str}] ALERT: Malicious Traffic from {ip} (Prob: {prob:.2%})\n"
                                 print(alert_msg.strip())

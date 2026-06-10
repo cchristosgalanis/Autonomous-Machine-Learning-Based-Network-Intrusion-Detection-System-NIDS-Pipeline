@@ -16,8 +16,8 @@ RUN pip install --no-cache-dir -r requirements-consumer.txt
 COPY models/linear_regression_feat_exp.pkl .
 COPY models/RobustScaler_feat_exp.pkl .
 COPY models/train_metrics_feature_expansion.npz .
-COPY models/nids_mlp_model.joblib .
-COPY models/nids_scaler.joblib .
+COPY models/nids_mlp_model1.joblib .
+COPY models/nids_scaler1.joblib .
 
 # copy code from src/ to /app in the container
 COPY src/ .

@@ -29,6 +29,7 @@ def libpcap_capture(capture_duration, interface, flow_states,target_port=80):
     b_coeffs = np.random.randint(0, prime_number, size=k,dtype=np.int64) # k-random coefficients for hash functions
     # initialize signature matrix for minHash (k rows for k hash functions, 1 column for each unique destination port)
     signature_matrix = np.full(k,np.inf) # initialize with infinity for minHash
+    spatial_ips = set()
     
     # global counters for volumetric features
     global_total_packets = 0
@@ -66,6 +67,7 @@ def libpcap_capture(capture_duration, interface, flow_states,target_port=80):
 
                         current_hashes = (a_coeffs * ip_int + b_coeffs) % prime_number # compute k hash values for this IP using the random coefficients
                         signature_matrix = np.minimum(signature_matrix, current_hashes) # update the minHash signature
+                        spatial_ips.add(src_ip)
 
                     # initialize ip metrics if not present
                     if src_ip not in ip_metrics:
@@ -173,7 +175,8 @@ def libpcap_capture(capture_duration, interface, flow_states,target_port=80):
         "timestamp": time.time(),
         "target_port": target_port,
         "k_size": k,
-        "signature": signature_matrix.tolist() # convert numpy array to list for JSON serialization
+        "signature": signature_matrix.tolist(), # convert numpy array to list for JSON serialization
+        "source_ips": list(spatial_ips)
     }
 
     # return a dataframe

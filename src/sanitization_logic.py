@@ -30,14 +30,19 @@ def sanitization_logic():
         conn = psycopg2.connect(host=DB_HOST, user=DB_USER, password=DB_PASS, dbname=DB_NAME)
         cursor = conn.cursor()
 
-        # get only unprocessed records with high confidence or Host traffic
+        # get a timestamp snapshot to prevent race conditions with newly arriving events
+        cursor.execute("SELECT NOW();")
+        now_ts = cursor.fetchone()[0]
+
+        # get only unprocessed records with high confidence or Host traffic up to now_ts
         select_query = f"""
             SELECT source_ip, velocity, acceleration, iat_mean, sa_ratio, jaccard_score, entropy_shannon, prediction 
             FROM network_traffic_events 
             WHERE is_processed = FALSE 
+              AND time <= %s
               AND (probability <= {T_SAFE} OR probability >= {CONFIDENCE_THRESHOLD} OR source_ip = '{HOST_IP}');
         """
-        cursor.execute(select_query)
+        cursor.execute(select_query, (now_ts,))
         records = cursor.fetchall()
 
         if not records:
@@ -56,9 +61,9 @@ def sanitization_logic():
             sanitized_X.append(features)
             sanitized_y.append(label)
 
-        # update database for this batch to prevent reprocessing
-        update_query = "UPDATE network_traffic_events SET is_processed = TRUE WHERE is_processed = FALSE;"
-        cursor.execute(update_query)
+        # update database for this batch to prevent reprocessing up to now_ts
+        update_query = "UPDATE network_traffic_events SET is_processed = TRUE WHERE is_processed = FALSE AND time <= %s;"
+        cursor.execute(update_query, (now_ts,))
         conn.commit()
 
         cursor.close()

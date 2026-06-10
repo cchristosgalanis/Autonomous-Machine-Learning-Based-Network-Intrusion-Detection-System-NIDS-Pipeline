@@ -67,6 +67,7 @@ def Consumer_Spatial_func():
                 target_port = payload.get('target_port')
                 k = payload.get('k_size', 256)
                 sig_list = payload.get('signature', [])
+                source_ips = payload.get('source_ips', [])
                 if not target_port or not sig_list: continue
                     
                 signature = np.array(sig_list)
@@ -74,25 +75,30 @@ def Consumer_Spatial_func():
 
                 if target_port in prev_signatures:
                     prev_sig = prev_signatures[target_port]
-                    spatial_analysis = nl.spatial_jaccard(signature, prev_sig, k, JACCARD_THRESHOLD)
-                    jaccard_score = spatial_analysis['jaccard_score']
+                    # Only calculate meaningful similarity if there is a minimum set of active IPs (avoid single IP FPs)
+                    if len(source_ips) >= 3:
+                        spatial_analysis = nl.spatial_jaccard(signature, prev_sig, k, JACCARD_THRESHOLD)
+                        jaccard_score = spatial_analysis['jaccard_score']
+                    else:
+                        jaccard_score = 0.0
 
                     with open(spatial_csv_path, mode='a', newline='', encoding='utf-8') as f:
                         csv.writer(f).writerow([current_plot_time, target_port, jaccard_score])
 
-                    feature_payload = {
-                        "target_port": target_port,
-                        "analyzer": "spatial",
-                        "metrics": {
-                            "jaccard_score": float(jaccard_score)
+                    for src_ip in source_ips:
+                        feature_payload = {
+                            "source_ip": src_ip,
+                            "analyzer": "spatial",
+                            "metrics": {
+                                "jaccard_score": float(jaccard_score)
+                            }
                         }
-                    }
-                    producer.produce(
-                        topic=output_topic, 
-                        key=str(target_port).encode('utf-8'),
-                        value=json.dumps(feature_payload).encode('utf-8'),
-                        callback=delivery_report
-                    )
+                        producer.produce(
+                            topic=output_topic, 
+                            key=src_ip.encode('utf-8'),
+                            value=json.dumps(feature_payload).encode('utf-8'),
+                            callback=delivery_report
+                        )
                 prev_signatures[target_port] = signature
 
             # --- DNS / DGA ---

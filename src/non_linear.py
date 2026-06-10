@@ -30,7 +30,7 @@ def shannon_entropy(domain_name):
     
     for count in character_freq.values():
         p_i = count / length
-        entropy -= (np.pi) * np.log2((np.pi))
+        entropy -= p_i * np.log2(p_i)
 
     return entropy
 
@@ -179,8 +179,8 @@ def load_model_and_scaler():
 #function to load neural network model and scaler
 def load_nn_model_and_scaler():
     try:
-        model = joblib.load('nids_mlp_model.joblib')
-        scaler = joblib.load('nids_scaler.joblib')
+        model = joblib.load('models/nids_mlp_model1.joblib')
+        scaler = joblib.load('models/nids_scaler1.joblib')
         return model, scaler
     except Exception as e:
         print(f"Error loading neural network model or scaler: {e}")
