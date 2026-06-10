@@ -148,6 +148,9 @@ def Consumer_NN_func():
                             if vel == 0.0 and acc == 0.0 and iat == 0.0 and sa <= 1.2 and jac == 0.0 and ent < 2.5:
                                 pred = 0
                                 prob = 0.0
+                            else:
+                                # Only classify as attack (pred = 1) if the anomaly probability is high (>= 0.85)
+                                pred = 1 if prob >= 0.85 else 0
                             
                             # create tuple for sql database insertion
                             db_records.append((
