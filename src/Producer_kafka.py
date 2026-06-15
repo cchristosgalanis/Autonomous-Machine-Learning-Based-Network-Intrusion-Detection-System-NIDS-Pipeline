@@ -55,9 +55,10 @@ def Producer_func():
                         "N_req": float(row['flow_pkts_s']),
                         "S_len": float(row['pkt_len_mean']),
                         'U_ports': int(row['unique_ports']),
-                        'SA_ratio': float(row['syn_ack_ratio']),
-                        'IAT_mean': float(row['iat_mean']),
-                        'IAT_std': float(row['iat_std'])
+                        'syn_count': int(row['syn_count']),
+                        'ack_count': int(row['ack_count']),
+                        'iat_sum': float(row['iat_sum']),
+                        'iat_count': int(row['iat_count'])
                     }
 
                     json_string = json.dumps(flow_dict)

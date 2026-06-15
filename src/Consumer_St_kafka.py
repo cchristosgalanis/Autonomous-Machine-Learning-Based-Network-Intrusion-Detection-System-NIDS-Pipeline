@@ -46,11 +46,15 @@ def Consumer_Stealth_func():
             flow_data = json.loads(raw_bytes.decode('utf-8'))
 
             src_ip = flow_data.get('Source_IP', 'Unknown')
-            try:
-                sa_ratio = float(flow_data.get('SA_ratio', 0.0))
-                iat_mean = float(flow_data.get('IAT_mean', 0.0))
-            except KeyError:
-                continue
+            # Extract raw values from flow_data
+            syn = int(flow_data.get('syn_count', 0))
+            ack = int(flow_data.get('ack_count', 0))
+            iat_sum = float(flow_data.get('iat_sum', 0.0))
+            iat_count = int(flow_data.get('iat_count', 0))
+
+            # Calculate local statistics for CSV logging
+            sa_ratio = float(syn) / ack if ack > 0 else (999.0 if syn > 0 else 0.0)
+            iat_mean = iat_sum / iat_count if iat_count > 0 else 0.0
 
             current_plot_time = time.time() 
             
