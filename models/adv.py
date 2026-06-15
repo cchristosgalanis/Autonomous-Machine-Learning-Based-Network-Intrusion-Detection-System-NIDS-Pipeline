@@ -33,9 +33,9 @@ def compute_features_offline(raw_csv_path, label_value):
 
     for index, row in df_raw.iterrows():
         # volumetric extraction with safe gets
-        t_vol = float(row.get('flow_byts_s', row.get('T_vol', 0.0)))
-        n_req = float(row.get('flow_pkts_s', row.get('N_req', 0.0)))
-        s_len = float(row.get('pkt_len_mean', row.get('S_len', 0.0)))
+        t_vol = float(row.get('Flow Byts/s', row.get('flow_byts_s', row.get('T_vol', 0.0))))
+        n_req = float(row.get('Flow Pkts/s', row.get('flow_pkts_s', row.get('N_req', 0.0))))
+        s_len = float(row.get('Pkt Len Mean', row.get('pkt_len_mean', row.get('S_len', 0.0))))
 
         buffer.append(np.array([t_vol, n_req, s_len]))
 
@@ -52,8 +52,21 @@ def compute_features_offline(raw_csv_path, label_value):
                 velocity, acceleration = nl.compute_kinematic(list(residual_memory))
 
         # stealth & spatial features
-        iat_mean = float(row.get('iat_mean', row.get('IAT_mean', 0.0)))
-        sa_ratio = float(row.get('syn_ack_ratio', row.get('SA_ratio', 0.0)))
+        iat_mean = float(row.get('Flow IAT Mean', row.get('iat_mean', row.get('IAT_mean', 0.0))))
+        
+        syn_ack_ratio = row.get('syn_ack_ratio', row.get('SA_ratio'))
+        if syn_ack_ratio is not None:
+            sa_ratio = float(syn_ack_ratio)
+        else:
+            syn = float(row.get('SYN Flag Cnt', 0.0))
+            ack = float(row.get('ACK Flag Cnt', 0.0))
+            if ack > 0:
+                sa_ratio = syn / ack
+            elif syn > 0:
+                sa_ratio = 999.0
+            else:
+                sa_ratio = 0.0
+
         jaccard_score = float(row.get('Jaccard_score', row.get('jaccard_score', 0.0)))
         
         domain = str(row.get('Domain', row.get('domain', '')))
@@ -68,9 +81,14 @@ def compute_features_offline(raw_csv_path, label_value):
 
 if __name__ == "__main__":
     
-    attack_file = "merged_attacks.csv.gz"
-    # Αποθήκευση απευθείας στον τρέχοντα φάκελο
-    output_file = "historical_attacks.npz"
+    # Try multiple common paths for the raw gzipped CSV
+    attack_file = "topical_src/merged_attacks.csv.gz"
+    if not os.path.exists(attack_file):
+        attack_file = "models/merged_attacks.csv.gz"
+    if not os.path.exists(attack_file):
+        attack_file = "merged_attacks.csv.gz"
+        
+    output_file = "models/historical_attacks.npz"
 
     print("\n --- Starting ONE-TIME Historical Feature Extraction ---")
     

@@ -64,8 +64,10 @@ def Consumer_Stealth_func():
                 "source_ip": src_ip,
                 "analyzer": "stealth",
                 "metrics": {
-                    "iat_mean": iat_mean,
-                    "sa_ratio": sa_ratio
+                    'syn_count':int(flow_data.get('syn_count',0)),
+                    'ack_count':int(flow_data.get('ack_count',0)),
+                    'iat_sum':float(flow_data.get('iat_sum',0.0)),
+                    'iat_count':int(flow_data.get('iat_count',0)),
                 }
             }
             

@@ -178,9 +178,23 @@ def load_model_and_scaler():
 
 #function to load neural network model and scaler
 def load_nn_model_and_scaler():
+    import os
+    
+    active_model = 'models/mlp_model.joblib'
+    active_scaler = 'models/scaler.joblib'
+    base_model = 'models/nids_mlp_model2.joblib'
+    base_scaler = 'models/nids_robust_scaler2.joblib'
+    
     try:
-        model = joblib.load('models/nids_mlp_model1.joblib')
-        scaler = joblib.load('models/nids_scaler1.joblib')
+        if os.path.exists(active_model) and os.path.exists(active_scaler):
+            model_path = active_model
+            scaler_path = active_scaler
+        else:
+            model_path = base_model
+            scaler_path = base_scaler
+            
+        model = joblib.load(model_path)
+        scaler = joblib.load(scaler_path)
         return model, scaler
     except Exception as e:
         print(f"Error loading neural network model or scaler: {e}")

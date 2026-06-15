@@ -21,6 +21,42 @@ def rotate_log_file(filepath, max_lines=1000):
     except Exception as e:
         print(f"\n Error rotating log {filepath}: {e}")
 
+def adjust_prior_probability(mlp_prob, real_prior_attack=0.01):
+    """
+    Adjusts the classification probability from a model trained on balanced data (50/50)
+    to reflect a realistic prior probability of an attack.
+    """
+    mlp_prob = np.clip(mlp_prob, 1e-6, 1.0 - 1e-6)
+    numerator = mlp_prob * real_prior_attack
+    denominator = (mlp_prob * real_prior_attack) + ((1.0 - mlp_prob) * (1.0 - real_prior_attack))
+    return numerator / denominator
+
+def update_sequential_bayesian(ip, current_prob, current_time, ip_bayesian_posteriors, ip_last_seen, base_prior=0.01, decay_factor=0.95):
+    """
+    Updates the running belief (posterior probability) that an IP is malicious 
+    based on sequential evidence across time windows.
+    """
+    prior = ip_bayesian_posteriors.get(ip, base_prior)
+    
+    if ip in ip_last_seen:
+        elapsed = current_time - ip_last_seen[ip]
+        if elapsed > 15:
+            decay_steps = int(elapsed / 10)
+            prior = prior * (decay_factor ** decay_steps)
+            prior = max(prior, base_prior)
+
+    p_x_given_A = np.clip(current_prob, 1e-5, 1.0 - 1e-5)
+    p_x_given_N = 1.0 - p_x_given_A
+
+    numerator = p_x_given_A * prior
+    denominator = (p_x_given_A * prior) + (p_x_given_N * (1.0 - prior))
+    posterior = numerator / denominator
+
+    ip_bayesian_posteriors[ip] = posterior
+    ip_last_seen[ip] = current_time
+
+    return posterior
+
 # main function for the consumer that runs the neural network inference and handles hot-reloading of the model weights
 def Consumer_NN_func():
     HOST_IP = os.getenv('HOST_IP', '127.0.0.1')
@@ -62,6 +98,10 @@ def Consumer_NN_func():
     WINDOW_INTERVAL = 10.0
     last_evaluation_time = time.time()
     aggregate_buffer = {}
+
+    # State tracking for IP-specific Bayesian posteriors
+    ip_bayesian_posteriors = {}
+    ip_last_seen = {}
 
     os.makedirs("logs", exist_ok=True)
     alerts_log_path = "logs/nids_final_alerts.log"
@@ -115,13 +155,29 @@ def Consumer_NN_func():
                     entities_batch = []
                     
                     for entity, data in aggregate_buffer.items():
+                    # volumetric metrics
                         vel = max([v.get('velocity', 0.0) for v in data['volumetric']]) if data['volumetric'] else 0.0
                         acc = max([v.get('acceleration', 0.0) for v in data['volumetric']]) if data['volumetric'] else 0.0
-                        iat = float(np.mean([s.get('iat_mean', 0.0) for s in data['stealth']])) if data['stealth'] else 0.0
-                        sa = max([s.get('sa_ratio', 0.0) for s in data['stealth']]) if data['stealth'] else 0.0
+    
+                        # stealth metrics
+                        if data['stealth']:
+                            # total values in each window for the entity
+                            total_syn = sum([s.get('syn_count', 0) for s in data['stealth']])
+                            total_ack = sum([s.get('ack_count', 0) for s in data['stealth']])
+                            total_iat_sum = sum([s.get('iat_sum', 0.0) for s in data['stealth']])
+                            total_iat_count = sum([s.get('iat_count', 0) for s in data['stealth']])
+        
+                            # division to avoid Simpon's paradox and handle cases with zero ACKs 
+                            sa = float(total_syn) / total_ack if total_ack > 0 else (999.0 if total_syn > 0 else 0.0)
+                            iat = (total_iat_sum / total_iat_count) if total_iat_count > 0 else 0.0
+                        else:
+                            sa = 0.0
+                            iat = 0.0
+    
+                        # spatial and DNS metrics
                         jac = max([s.get('jaccard_score', 0.0) for s in data['spatial']]) if data['spatial'] else 0.0
                         ent = max([d.get('entropy_shannon', 0.0) for d in data['dns']]) if data['dns'] else 0.0
-                        
+
                         X_batch.append([vel, acc, iat, sa, jac, ent])
                         entities_batch.append(entity)
 
@@ -149,7 +205,17 @@ def Consumer_NN_func():
                                 pred = 0
                                 prob = 0.0
                             else:
-                                # Only classify as attack (pred = 1) if the anomaly probability is high (>= 0.85)
+                                # Apply Bayesian Prior Calibration (MLP is trained 50/50, adjust to 1% baseline prior)
+                                calibrated_prob = adjust_prior_probability(prob, real_prior_attack=0.01)
+                                
+                                # Apply Sequential Bayesian updating over evaluation windows
+                                prob = update_sequential_bayesian(
+                                    ip, calibrated_prob, current_time, 
+                                    ip_bayesian_posteriors, ip_last_seen, 
+                                    base_prior=0.01, decay_factor=0.95
+                                )
+                                
+                                # Only classify as attack (pred = 1) if the Bayesian anomaly probability is high (>= 0.85)
                                 pred = 1 if prob >= 0.85 else 0
                             
                             # create tuple for sql database insertion

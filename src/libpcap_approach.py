@@ -168,10 +168,13 @@ def libpcap_capture(capture_duration, interface, flow_states,target_port=80):
         else:
             syn_ack_ratio = 0.0
 
-        # iat mean and iat std
+        # extract raw counters instead of computing mean valurs
+        syn = metrics['syn_count']
+        ack = metrics['ack_count']
+
         iats = metrics['curr_window_iats']
-        iat_mean = float(np.mean(iats)) if iats else 0.0
-        iat_std = float(np.std(iats)) if len(iats) > 1 else 0.0
+        iat_sum = float(sum(iats))
+        iat_count = float(len(iats))
 
         # add to flow data list
         flow_data.append({
@@ -180,9 +183,10 @@ def libpcap_capture(capture_duration, interface, flow_states,target_port=80):
             'flow_pkts_s': global_flow_pkts_s,   # getting the global packets per second for this window  
             'pkt_len_mean': global_pkt_len_mean, # getting the global mean packet length for this window  
             'unique_ports': port_scan_intensity,
-            'syn_ack_ratio': float(syn_ack_ratio),
-            'iat_mean': iat_mean,
-            'iat_std': iat_std
+            'syn_count': syn,
+            'ack_count': ack,
+            'iat_sum': iat_sum,
+            'iat_count': iat_count,
         })
 
     signature_matrix[np.isinf(signature_matrix)] = -1
