@@ -22,45 +22,7 @@ An enterprise-grade, real-time, self-adaptive Network Intrusion Detection System
 ---
 ## System Architecture
 The pipeline is built on a decoupled, microservices-oriented architecture using Docker Compose. The flow of data travels from the raw network interface to live alerts and a real-time visualization dashboard:
-```mermaid
-flowchart TD
-    subgraph Capture & Ingestion [Layer 1: Sniffing & Ingestion]
-        A[Network Interface e.g., en0, eth0] -->|Raw packets| B[libpcap Sniffer / Kafka Producer]
-        B -->|live-network-flows| C1[(Kafka Broker)]
-        B -->|spatial-minhash-signatures| C2[(Kafka Broker)]
-        B -->|dns-queries| C3[(Kafka Broker)]
-    end
-    subgraph Feature Extraction [Layer 2: Specialized Feature Consumers]
-        C1 -->|Consume| D1[Volumetric Consumer]
-        C1 -->|Consume| D2[Stealth Consumer]
-        C2 -->|Consume| D3[Spatial Consumer]
-        C3 -->|Consume| D4[DNS Consumer]
-        
-        D1 -->|Velocity, Acceleration| E[unified-features-topic]
-        D2 -->|Mean IAT, SYN/ACK Ratio| E
-        D3 -->|Jaccard Similarity| E
-        D4 -->|Shannon Entropy| E
-    end
-    subgraph Evaluation [Layer 3: AI Inference & Persistence]
-        E -->|Consume 10s Window| F[AI MLP Consumer]
-        F -->|MLP Inference| G{Anomaly?}
-        G -->|Yes| H[logs/nids_final_alerts.log]
-        G -->|Yes / No| I[(TimescaleDB Hypertable)]
-    end
-    subgraph Adaptation [Layer 4: Closed-Loop Adaptive Learning]
-        I -->|Unprocessed High-Confidence Events| J[Sanitization Service]
-        J -->|Sanitized Samples npz| K[Adaptive Learning Service]
-        K -->|Data Fusion with Historical Attacks| L[MLP Retraining]
-        L -->|Write new weights| M[models/mlp_model.joblib]
-        M -->|Hot-Reload Seamlessly| F
-    end
-    subgraph Visualization [Layer 5: Monitoring]
-        D1 -->|Write logs| N[(CSV Logs)]
-        F -->|Write logs| H
-        N -->|Read| O[Streamlit Dashboard]
-        H -->|Read| O
-    end
-```
+![System Architecture](System_Architecture.png)
 ---
 ## Core Detection Methodologies
 The pipeline leverages multiple detection vectors to identify diverse threat types, ranging from high-bandwidth DDoS floods to low-and-slow port scans and botnet coordination:

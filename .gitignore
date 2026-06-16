@@ -19,7 +19,7 @@ features/
 
 # png
 *.png
-
+!System_Architecture.png
 
 
 
