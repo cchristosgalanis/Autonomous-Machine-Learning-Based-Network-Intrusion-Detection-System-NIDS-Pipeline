@@ -198,19 +198,16 @@ def Consumer_NN_func():
                             features = X_batch[idx]
                             is_host = (ip == HOST_IP)
                             dt_time = datetime.datetime.fromtimestamp(current_time)
+                            vel, acc, iat, sa, jac, ent = features
                             
                             # Heuristic override for completely benign/idle/quiet traffic to bypass model's zero-traffic bias
-                            vel, acc, iat, sa, jac, ent = features
                             if vel == 0.0 and acc == 0.0 and iat == 0.0 and sa <= 1.2 and jac == 0.0 and ent < 2.5:
                                 pred = 0
                                 prob = 0.0
                             else:
-                                # Apply Bayesian Prior Calibration (MLP is trained 50/50, adjust to 1% baseline prior)
-                                calibrated_prob = adjust_prior_probability(prob, real_prior_attack=0.01)
-                                
-                                # Apply Sequential Bayesian updating over evaluation windows
+                                # Apply Sequential Bayesian updating over evaluation windows using raw model probability
                                 prob = update_sequential_bayesian(
-                                    ip, calibrated_prob, current_time, 
+                                    ip, prob, current_time, 
                                     ip_bayesian_posteriors, ip_last_seen, 
                                     base_prior=0.01, decay_factor=0.95
                                 )

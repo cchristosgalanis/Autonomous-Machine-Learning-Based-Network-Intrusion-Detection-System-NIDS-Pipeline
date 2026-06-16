@@ -11,7 +11,7 @@ def libpcap_capture(capture_duration, interface, flow_states,target_port=80):
     
     # Open interface: max bytes, promiscuous, timeout
     cap = pcapy.open_live(interface, 65536, 1, 100)
-    cap.setfilter("ip") # BPF filter at kernel level
+    cap.setfilter("ip and (tcp or udp)") # BPF filter at kernel level for TCP/UDP
 
     start_time = time.time()
 
@@ -67,72 +67,72 @@ def libpcap_capture(capture_duration, interface, flow_states,target_port=80):
                 except Exception:
                     continue
                 
-                # update global volumetric counters
-                global_total_packets += 1
-                global_total_bytes += len(data)
+            # update global volumetric counters
+            global_total_packets += 1
+            global_total_bytes += len(data)
+            
+            src_ip = socket.inet_ntoa(ip.src)
+
+            # analyze TCP packets for stealth metrics
+            if isinstance(ip.data, dpkt.tcp.TCP):
+                tcp = ip.data
+
+                # minHash signature update for this source IP based on destination port (for port scan detection)
+                if tcp.dport == target_port:
+                    ip_int = struct.unpack("!I", ip.src)[0] # convert source IP to integer for hashing
+
+                    current_hashes = (a_coeffs * ip_int + b_coeffs) % prime_number # compute k hash values for this IP using the random coefficients
+                    signature_matrix = np.minimum(signature_matrix, current_hashes) # update the minHash signature
+                    spatial_ips.add(src_ip)
+
+                # initialize ip metrics if not present
+                if src_ip not in ip_metrics:
+                    ip_metrics[src_ip] = {
+                        'unique_dst_port': set(),
+                        'syn_count': 0,
+                        'ack_count': 0,
+                        'curr_window_iats': []
+                    }
+
+                # stealth variables per ip
+                ip_metrics[src_ip]['unique_dst_port'].add(tcp.dport)
+
+                if tcp.flags & dpkt.tcp.TH_SYN:
+                    ip_metrics[src_ip]['syn_count'] += 1
+                if tcp.flags & dpkt.tcp.TH_ACK:
+                    ip_metrics[src_ip]['ack_count'] += 1
+
+                # create a key for stateful tracking
+                flow_key = (ip.src, tcp.sport, ip.dst, tcp.dport)
+                packet_time = time.time()
+
+                if flow_key in flow_states:
+                    iat = packet_time - flow_states[flow_key]
+                    ip_metrics[src_ip]['curr_window_iats'].append(iat)
+
+                flow_states[flow_key] = packet_time
+            
+            # capture DNS queries for potential future use in spatial correlation
+            elif isinstance(ip.data, dpkt.udp.UDP):
+                udp = ip.data
                 
-                src_ip = socket.inet_ntoa(ip.src)
+                #check if destination port is 53 (DNS)
+                if udp.dport == 53:
+                    try:
+                        #parse DNS payload
+                        dns = dpkt.dns.DNS(udp.data)
 
-                # analyze TCP packets for stealth metrics
-                if isinstance(ip.data, dpkt.tcp.TCP):
-                    tcp = ip.data
+                        # if query (qr==0) AND questions present
+                        if dns.qr == 0 and len(dns.qd) > 0:
+                            qname = dns.qd[0].name # raw domain name from DNS query
 
-                    # minHash signature update for this source IP based on destination port (for port scan detection)
-                    if tcp.dport == target_port:
-                        ip_int = struct.unpack("!I", ip.src)[0] # convert source IP to integer for hashing
-
-                        current_hashes = (a_coeffs * ip_int + b_coeffs) % prime_number # compute k hash values for this IP using the random coefficients
-                        signature_matrix = np.minimum(signature_matrix, current_hashes) # update the minHash signature
-                        spatial_ips.add(src_ip)
-
-                    # initialize ip metrics if not present
-                    if src_ip not in ip_metrics:
-                        ip_metrics[src_ip] = {
-                            'unique_dst_port': set(),
-                            'syn_count': 0,
-                            'ack_count': 0,
-                            'curr_window_iats': []
-                        }
-
-                    # stealth variables per ip
-                    ip_metrics[src_ip]['unique_dst_port'].add(tcp.dport)
-
-                    if tcp.flags & dpkt.tcp.TH_SYN:
-                        ip_metrics[src_ip]['syn_count'] += 1
-                    if tcp.flags & dpkt.tcp.TH_ACK:
-                        ip_metrics[src_ip]['ack_count'] += 1
-
-                    # create a key for stateful tracking
-                    flow_key = (ip.src, tcp.sport, ip.dst, tcp.dport)
-                    packet_time = time.time()
-
-                    if flow_key in flow_states:
-                        iat = packet_time - flow_states[flow_key]
-                        ip_metrics[src_ip]['curr_window_iats'].append(iat)
-
-                    flow_states[flow_key] = packet_time
-                
-                # capture DNS queries for potential future use in spatial correlation
-                elif isinstance(ip.data, dpkt.udp.UDP):
-                    udp = ip.data
-                    
-                    #check if destination port is 53 (DNS)
-                    if udp.dport == 53:
-                        try:
-                            #parse DNS payload
-                            dns = dpkt.dns.DNS(udp.data)
-
-                            # if query (qr==0) AND questions present
-                            if dns.qr == 0 and len(dns.qd) > 0:
-                                qname = dns.qd[0].name # raw domain name from DNS query
-
-                                dns_queries.append({
-                                    "timestamp": time.time(),
-                                    "source_ip": src_ip,
-                                    "domain": qname
-                                })
-                        except Exception:
-                            pass
+                            dns_queries.append({
+                                "timestamp": time.time(),
+                                "source_ip": src_ip,
+                                "domain": qname
+                            })
+                    except Exception:
+                        pass
 
         except Exception:
             continue

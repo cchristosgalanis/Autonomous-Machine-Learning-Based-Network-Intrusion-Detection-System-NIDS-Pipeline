@@ -19,7 +19,7 @@ def Consumer_func():
         print("Error: Model or scaler could not be loaded. Exiting.")
         return
     
-    w_train = 20 
+    w_train = 5 
     ip_buffers = {}
     ip_residual_memories = {}
 
@@ -70,10 +70,13 @@ def Consumer_func():
             ip_buffers[src_ip].append(current_row)
 
             log_velocity, log_acceleration, current_residual = 0.0, 0.0, 0.0
+            actual_w = len(ip_buffers[src_ip])
 
-            if len(ip_buffers[src_ip]) >= w_train:
-                analysis_batch = np.array(list(ip_buffers[src_ip]))[-w_train:]
-                actual_w = len(analysis_batch)
+            if actual_w >= 2:
+                analysis_batch = np.array(list(ip_buffers[src_ip]))
+                if actual_w > w_train:
+                    analysis_batch = analysis_batch[-w_train:]
+                    actual_w = w_train
                 
                 T_vol, N_req, S_len = analysis_batch[:, 0], analysis_batch[:, 1], analysis_batch[:, 2]
                 entropy_res_array = nl.entropy_based_stab_check(T_vol, N_req, S_len, actual_w, model, scaler)
