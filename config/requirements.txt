@@ -9,3 +9,7 @@ pcapy-ng
 confluent-kafka
 dpkt
 psycopg2-binary
+psutil
+GPUtil
+streamlit
+python-dotenv
