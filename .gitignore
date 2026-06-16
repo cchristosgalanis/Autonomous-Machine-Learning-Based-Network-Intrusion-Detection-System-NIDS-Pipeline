@@ -11,6 +11,8 @@ features/
 # Datasets (Large CSV files)
 *.csv
 
+*.txt
+
 # log files
 *.log
 
