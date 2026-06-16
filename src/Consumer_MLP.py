@@ -200,11 +200,27 @@ def Consumer_NN_func():
                             dt_time = datetime.datetime.fromtimestamp(current_time)
                             vel, acc, iat, sa, jac, ent = features
                             
+                            # Heuristic guardrails for signature-based fallback detection (Hybrid NIDS)
+                            # This overrides the zero-traffic-bias of the model before online retraining self-heals it
+                            is_anomaly = False
+                            if sa > 10.0:  # High SYN/ACK ratio indicates a SYN Flood attack
+                                is_anomaly = True
+                            if vel > 3.0 or acc > 3.0:  # High kinematics indicates volumetric flood
+                                is_anomaly = True
+                            if jac >= 0.70:  # High spatial correlation indicates scan/botnet coordination
+                                is_anomaly = True
+                            if ent >= 3.0:  # High DNS payload entropy indicates DGA/C2 activity
+                                is_anomaly = True
+                            
                             # Heuristic override for completely benign/idle/quiet traffic to bypass model's zero-traffic bias
                             if vel == 0.0 and acc == 0.0 and iat == 0.0 and sa <= 1.2 and jac == 0.0 and ent < 2.5:
                                 pred = 0
                                 prob = 0.0
                             else:
+                                # If a heuristic signature is matched, override the broken model's prediction probability to bootstrap the database
+                                if is_anomaly:
+                                    prob = max(prob, 0.95)
+
                                 # Apply Sequential Bayesian updating over evaluation windows using raw model probability
                                 prob = update_sequential_bayesian(
                                     ip, prob, current_time, 
