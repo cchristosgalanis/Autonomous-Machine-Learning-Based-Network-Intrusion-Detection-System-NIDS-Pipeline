@@ -194,6 +194,11 @@ def Consumer_NN_func():
                     with open(alerts_log_path, "a", encoding="utf-8") as alert_log:
                         for idx, prob in enumerate(probabilities):
                             ip = entities_batch[idx]
+                            
+                            # Ignore self-traffic / host traffic to prevent self-monitoring loops
+                            if ip == HOST_IP or ip == '127.0.0.1':
+                                continue
+                            
                             pred = int(predictions[idx])
                             features = X_batch[idx]
                             is_host = (ip == HOST_IP)
